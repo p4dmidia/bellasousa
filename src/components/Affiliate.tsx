@@ -1,0 +1,208 @@
+import { motion } from 'motion/react';
+import { Users, TrendingUp, Award, CheckCircle2, ArrowRight, DollarSign, Zap } from 'lucide-react';
+
+export function Affiliate({ onBack }: { onBack: () => void }) {
+    const handleSubmit = (e: any) => {
+        e.preventDefault();
+        alert("Obrigado pelo interesse! Nossa equipe entrará em contato em breve.");
+        onBack();
+    };
+
+    return (
+        <div className="bg-white min-h-screen">
+            {/* Hero Section */}
+            <section className="relative py-24 px-6 md:px-20 bg-primary overflow-hidden">
+                <div className="absolute inset-0 opacity-10">
+                    <div className="absolute top-0 left-0 w-96 h-96 bg-accent rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+                    <div className="absolute bottom-0 right-0 w-96 h-96 bg-accent rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
+                </div>
+
+                <div className="max-w-5xl mx-auto text-center relative z-10">
+                    <motion.span
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-accent text-xs font-bold uppercase tracking-[0.4em] mb-6 block"
+                    >
+                        Oportunidade de Negócios Bella Sousa
+                    </motion.span>
+                    <motion.h1
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                        className="text-white text-5xl md:text-7xl font-serif mb-8 leading-tight"
+                    >
+                        Transforme sua Paixão em um <br />
+                        <span className="italic text-accent">Império de Beleza</span>
+                    </motion.h1>
+                    <motion.p
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="text-slate-300 text-lg md:text-xl font-light mb-12 max-w-3xl mx-auto leading-relaxed"
+                    >
+                        Junte-se à nossa rede exclusiva de consultoras e descubra como o modelo de Marketing Multinível da Bella Sousa pode proporcionar sua independência financeira com produtos que as mulheres amam.
+                    </motion.p>
+                    <motion.button
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                        onClick={() => document.getElementById('register-form')?.scrollIntoView({ behavior: 'smooth' })}
+                        className="btn-primary px-10 py-5 group"
+                    >
+                        Quero Começar Agora
+                        <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                    </motion.button>
+                </div>
+            </section>
+
+            {/* Benefícios */}
+            <section className="py-24 px-6 md:px-20">
+                <div className="max-w-7xl mx-auto">
+                    <div className="text-center mb-20">
+                        <h2 className="text-primary text-3xl md:text-5xl font-serif mb-4">Por que ser uma parceira?</h2>
+                        <div className="h-1 w-20 bg-accent mx-auto" />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+                        {[
+                            {
+                                icon: <DollarSign className="w-8 h-8" />,
+                                title: "Lucratividade Alta",
+                                desc: "Margens de lucro imbatíveis tanto na revenda direta de lingeries de luxo quanto em nossa linha de cosméticos artesanais."
+                            },
+                            {
+                                icon: <Users className="w-8 h-8" />,
+                                title: "Sistema MMN Real",
+                                desc: "Não apenas venda, construa equipe. Ganhe comissões sobre as vendas de toda a sua rede de consultoras parceiras."
+                            },
+                            {
+                                icon: <Zap className="w-8 h-8" />,
+                                title: "Treinamento VIP",
+                                desc: "Acesso a mentorias exclusivas sobre vendas, marketing digital e liderança para alavancar seu negócio."
+                            }
+                        ].map((item, i) => (
+                            <motion.div
+                                key={i}
+                                whileHover={{ y: -10 }}
+                                className="bg-slate-50 p-10 rounded-3xl border border-slate-100 flex flex-col items-center text-center group"
+                            >
+                                <div className="size-16 bg-white rounded-2xl flex items-center justify-center text-accent shadow-sm mb-8 group-hover:bg-accent group-hover:text-white transition-all duration-500">
+                                    {item.icon}
+                                </div>
+                                <h3 className="text-primary text-2xl font-serif mb-4">{item.title}</h3>
+                                <p className="text-slate-500 font-light leading-relaxed">{item.desc}</p>
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Como Funciona o MMN */}
+            <section className="py-24 px-6 md:px-20 bg-slate-50">
+                <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-16 items-center">
+                    <div>
+                        <span className="text-accent text-[10px] uppercase font-bold tracking-widest mb-4 block">Cresça com a gente</span>
+                        <h2 className="text-primary text-4xl md:text-5xl font-serif mb-8 leading-tight">Um modelo de negócio desenhado para sua <span className="italic">liberdade</span>.</h2>
+                        <p className="text-slate-600 mb-8 leading-relaxed font-light text-lg">
+                            Diferente do varejo tradicional, na Bella Sousa você é recompensada por inspirar outras mulheres. Nosso plano de carreira permite que você escale seus ganhos de forma exponencial.
+                        </p>
+
+                        <ul className="space-y-6">
+                            {[
+                                "Bônus de indicação direta e indireta.",
+                                "Premiações por metas de volume de equipe.",
+                                "Viagens e eventos exclusivos para líderes.",
+                                "Suporte 24h via WhatsApp para dúvidas."
+                            ].map((text, i) => (
+                                <li key={i} className="flex items-center gap-4 text-primary font-medium">
+                                    <CheckCircle2 className="w-5 h-5 text-accent" />
+                                    {text}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+
+                    <div className="relative">
+                        <div className="aspect-square bg-white rounded-[40px] shadow-2xl p-12 flex flex-col justify-center relative z-10 overflow-hidden">
+                            <div className="absolute top-0 right-0 size-40 bg-accent/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+                            <TrendingUp className="w-16 h-16 text-accent mb-8" />
+                            <h3 className="text-primary text-3xl font-serif mb-6">Plano de Carreira</h3>
+                            <div className="space-y-4">
+                                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <motion.div initial={{ width: 0 }} whileInView={{ width: '40%' }} className="h-full bg-accent" />
+                                </div>
+                                <div className="flex justify-between text-xs text-slate-400 font-bold uppercase tracking-widest">
+                                    <span>Consultora</span>
+                                    <span>40% Lucro</span>
+                                </div>
+                                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <motion.div initial={{ width: 0 }} whileInView={{ width: '70%' }} className="h-full bg-accent" />
+                                </div>
+                                <div className="flex justify-between text-xs text-slate-400 font-bold uppercase tracking-widest">
+                                    <span>Líder de Equipe</span>
+                                    <span>Ganhos em Rede</span>
+                                </div>
+                                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <motion.div initial={{ width: 0 }} whileInView={{ width: '100%' }} className="h-full bg-accent" />
+                                </div>
+                                <div className="flex justify-between text-xs text-slate-400 font-bold uppercase tracking-widest">
+                                    <span>Diretora / Diamante</span>
+                                    <span>Royalties Totais</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="absolute -bottom-8 -left-8 size-48 bg-primary rounded-3xl -z-0 rotate-12" />
+                    </div>
+                </div>
+            </section>
+
+            {/* Formulário de Cadastro */}
+            <section id="register-form" className="py-24 px-6 md:px-20">
+                <div className="max-w-3xl mx-auto">
+                    <div className="bg-white p-12 rounded-[40px] border border-black/5 shadow-2xl relative">
+                        <div className="text-center mb-12">
+                            <Award className="w-12 h-12 text-accent mx-auto mb-6" />
+                            <h2 className="text-primary text-3xl md:text-4xl font-serif mb-4">Faça Parte da Elite</h2>
+                            <p className="text-slate-500 font-light">Preencha os dados abaixo e entraremos em contato para uma entrevista de parceria.</p>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-8">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Nome Completo</label>
+                                    <input required type="text" placeholder="Maria Silva" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">WhatsApp</label>
+                                    <input required type="tel" placeholder="(00) 00000-0000" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">E-mail</label>
+                                    <input required type="email" placeholder="maria@exemplo.com" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Cidade / UF</label>
+                                    <input required type="text" placeholder="São Paulo - SP" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Senha de Acesso</label>
+                                <input required type="password" placeholder="••••••••" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Chave PIX (Para recebimento de comissões)</label>
+                                <input required type="text" placeholder="CPF, E-mail ou Telefone" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" />
+                            </div>
+
+                            <button type="submit" className="w-full bg-primary hover:bg-primary/95 text-white py-5 rounded-2xl font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-primary/20">
+                                Enviar minha Solicitação
+                                <CheckCircle2 className="w-5 h-5" />
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+        </div>
+    );
+}
