@@ -89,17 +89,17 @@ export default function Header({
               className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
             />
             <motion.div
-              initial={{ x: '100%' }}
+              initial={{ x: '-100%' }}
               animate={{ x: 0 }}
-              exit={{ x: '100%' }}
+              exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 bottom-0 w-[80%] max-w-sm bg-primary border-l border-accent/20 z-[70] p-8"
+              className="fixed top-0 left-0 bottom-0 w-[85%] max-w-sm bg-[#251212] border-r border-accent/20 z-[70] p-8 shadow-2xl"
             >
               <div className="flex justify-between items-center mb-12">
-                <div className="h-12 overflow-hidden rounded-[8px]">
+                <div className="h-10 overflow-hidden rounded-[8px]">
                   <img src={logoImg} alt="Logo" className="h-full w-auto" />
                 </div>
-                <button onClick={() => setIsMenuOpen(false)} className="text-white p-2">
+                <button onClick={() => setIsMenuOpen(false)} className="text-white p-2 hover:bg-white/5 rounded-full transition-colors">
                   <X className="w-6 h-6" />
                 </button>
               </div>
