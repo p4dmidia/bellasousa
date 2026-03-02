@@ -1,4 +1,6 @@
-import { Search, ShoppingBag, Menu, User } from 'lucide-react';
+import { Search, ShoppingBag, Menu, User, X } from 'lucide-react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import logoImg from '../assets/logo.jpeg';
 
 
@@ -15,6 +17,12 @@ export default function Header({
   searchQuery: string,
   onSearchChange: (q: string) => void
 }) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const handleNavigate = (view: any, category?: string) => {
+    onNavigate(view, category);
+    setIsMenuOpen(false);
+  };
 
 
 
@@ -27,9 +35,9 @@ export default function Header({
           </div>
         </div>
         <nav className="hidden lg:flex items-center gap-10">
-          <a className="text-slate-100 hover:text-accent transition-colors text-sm font-medium tracking-widest uppercase cursor-pointer" onClick={() => onNavigate('store', 'Lingerie')}>Lingerie</a>
-          <a className="text-slate-100 hover:text-accent transition-colors text-sm font-medium tracking-widest uppercase cursor-pointer" onClick={() => onNavigate('store', 'Cosméticos')}>Cosméticos</a>
-          <a className="text-slate-100 hover:text-accent transition-colors text-sm font-medium tracking-widest uppercase cursor-pointer" onClick={() => onNavigate('affiliate')}>Cadastre-se</a>
+          <a className="text-slate-100 hover:text-accent transition-colors text-sm font-medium tracking-widest uppercase cursor-pointer" onClick={() => handleNavigate('store', 'Lingerie')}>Lingerie</a>
+          <a className="text-slate-100 hover:text-accent transition-colors text-sm font-medium tracking-widest uppercase cursor-pointer" onClick={() => handleNavigate('store', 'Cosméticos')}>Cosméticos</a>
+          <a className="text-slate-100 hover:text-accent transition-colors text-sm font-medium tracking-widest uppercase cursor-pointer" onClick={() => handleNavigate('affiliate')}>Cadastre-se</a>
         </nav>
       </div>
       <div className="flex items-center gap-6">
@@ -64,10 +72,81 @@ export default function Header({
             </span>
           )}
         </button>
-        <button className="lg:hidden text-white">
+        <button className="lg:hidden text-white p-2" onClick={() => setIsMenuOpen(true)}>
           <Menu className="w-6 h-6" />
         </button>
       </div>
+
+      {/* Menu Mobile Drawer */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMenuOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed top-0 right-0 bottom-0 w-[80%] max-w-sm bg-primary border-l border-accent/20 z-[70] p-8"
+            >
+              <div className="flex justify-between items-center mb-12">
+                <div className="h-12 overflow-hidden rounded-[8px]">
+                  <img src={logoImg} alt="Logo" className="h-full w-auto" />
+                </div>
+                <button onClick={() => setIsMenuOpen(false)} className="text-white p-2">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-8">
+                <div className="space-y-6">
+                  <p className="text-[10px] uppercase font-bold tracking-[0.3em] text-accent/60">Navegação</p>
+                  <nav className="flex flex-col gap-6">
+                    <a className="text-white text-xl font-serif" onClick={() => handleNavigate('home')}>Início</a>
+                    <a className="text-white text-xl font-serif" onClick={() => handleNavigate('store')}>Boutique</a>
+                    <a className="text-white text-xl font-serif" onClick={() => handleNavigate('store', 'Lingerie')}>Lingerie</a>
+                    <a className="text-white text-xl font-serif" onClick={() => handleNavigate('store', 'Cosméticos')}>Cosméticos</a>
+                    <a className="text-white text-xl font-serif" onClick={() => handleNavigate('affiliate')}>Cadastre-se</a>
+                  </nav>
+                </div>
+
+                <div className="h-px bg-accent/10" />
+
+                <div className="space-y-6">
+                  <p className="text-[10px] uppercase font-bold tracking-[0.3em] text-accent/60">Sua Conta</p>
+                  <button
+                    onClick={() => handleNavigate('login')}
+                    className="flex items-center gap-3 text-white text-lg font-serif"
+                  >
+                    <User className="w-5 h-5 text-accent" />
+                    Entrar na Conta
+                  </button>
+                </div>
+
+                <div className="mt-12">
+                  <div className="flex items-stretch rounded-xl h-12 bg-white/5 border border-white/10 group focus-within:border-accent/40 transition-all">
+                    <div className="text-accent/60 flex items-center justify-center pl-4">
+                      <Search className="w-5 h-5" />
+                    </div>
+                    <input
+                      className="flex-1 bg-transparent border-none focus:ring-0 text-white placeholder:text-slate-500 text-sm px-3"
+                      placeholder="Pesquisar..."
+                      value={searchQuery}
+                      onChange={(e) => onSearchChange(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </header>
   );
 }
