@@ -62,7 +62,7 @@ const ALL_PRODUCTS = [
     }
 ];
 
-const CATEGORIES = ["Todos", "Lingerie", "Cosméticos", "Acessórios"];
+const CATEGORIES = ["Todos", "Lingerie", "Cosméticos", "Casa", "Acessórios"];
 
 export default function Store({
     onAddToCart,

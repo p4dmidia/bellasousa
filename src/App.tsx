@@ -85,11 +85,6 @@ export default function App() {
             transition={{ duration: 0.5 }}
           >
             <Hero onNavigate={(v, cat) => navigateToStore(cat)} />
-            <Collections onNavigate={(v, cat) => navigateToStore(cat)} />
-            <FeaturedProducts
-              onProductClick={() => setView('product')}
-              onAddToCart={(p) => addToCart(p)}
-            />
             <Footer />
           </motion.div>
         )}

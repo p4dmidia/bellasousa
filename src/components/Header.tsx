@@ -35,8 +35,10 @@ export default function Header({
           </div>
         </div>
         <nav className="hidden lg:flex items-center gap-10">
+          <a className="text-slate-100 hover:text-accent transition-colors text-sm font-medium tracking-widest uppercase cursor-pointer" onClick={() => handleNavigate('store')}>Loja Virtual</a>
           <a className="text-slate-100 hover:text-accent transition-colors text-sm font-medium tracking-widest uppercase cursor-pointer" onClick={() => handleNavigate('store', 'Lingerie')}>Lingerie</a>
           <a className="text-slate-100 hover:text-accent transition-colors text-sm font-medium tracking-widest uppercase cursor-pointer" onClick={() => handleNavigate('store', 'Cosméticos')}>Cosméticos</a>
+          <a className="text-slate-100 hover:text-accent transition-colors text-sm font-medium tracking-widest uppercase cursor-pointer" onClick={() => handleNavigate('store', 'Casa')}>Casa</a>
           <a className="text-slate-100 hover:text-accent transition-colors text-sm font-medium tracking-widest uppercase cursor-pointer" onClick={() => handleNavigate('affiliate')}>Cadastre-se</a>
         </nav>
       </div>
@@ -59,7 +61,7 @@ export default function Header({
           className="hidden md:flex items-center gap-2 text-slate-100 hover:text-accent transition-all text-[11px] font-bold uppercase tracking-widest px-4 py-2 border border-accent/20 rounded-full hover:bg-accent/5"
         >
           <User className="w-4 h-4" />
-          Minha Conta
+          Escritório Virtual
         </button>
         <button
           onClick={onOpenCart}
@@ -110,9 +112,10 @@ export default function Header({
                   <p className="text-[10px] uppercase font-bold tracking-[0.3em] text-accent/60">Navegação</p>
                   <nav className="flex flex-col gap-6">
                     <a className="text-white text-xl font-serif" onClick={() => handleNavigate('home')}>Início</a>
-                    <a className="text-white text-xl font-serif" onClick={() => handleNavigate('store')}>Boutique</a>
+                    <a className="text-white text-xl font-serif" onClick={() => handleNavigate('store')}>Loja Virtual</a>
                     <a className="text-white text-xl font-serif" onClick={() => handleNavigate('store', 'Lingerie')}>Lingerie</a>
                     <a className="text-white text-xl font-serif" onClick={() => handleNavigate('store', 'Cosméticos')}>Cosméticos</a>
+                    <a className="text-white text-xl font-serif" onClick={() => handleNavigate('store', 'Casa')}>Casa</a>
                     <a className="text-white text-xl font-serif" onClick={() => handleNavigate('affiliate')}>Cadastre-se</a>
                   </nav>
                 </div>
@@ -126,7 +129,7 @@ export default function Header({
                     className="flex items-center gap-3 text-white text-lg font-serif"
                   >
                     <User className="w-5 h-5 text-accent" />
-                    Entrar na Conta
+                    Escritório Virtual
                   </button>
                 </div>
 
