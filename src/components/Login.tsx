@@ -1,11 +1,10 @@
 import { motion } from 'motion/react';
 import { Mail, Lock, ArrowRight, UserPlus, HelpCircle } from 'lucide-react';
 
-export function Login({ onBack, onSwitchToRegister }: { onBack: () => void, onSwitchToRegister: () => void }) {
+export function Login({ onBack, onSwitchToRegister, onLoginSuccess }: { onBack: () => void, onSwitchToRegister: () => void, onLoginSuccess: () => void }) {
     const handleSubmit = (e: any) => {
         e.preventDefault();
-        alert("Escritório Virtual em desenvolvimento. Em breve você terá acesso total ao seu painel!");
-        onBack();
+        onLoginSuccess();
     };
 
     return (

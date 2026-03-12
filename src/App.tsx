@@ -9,6 +9,7 @@ import { Affiliate } from './components/Affiliate';
 import { Login } from './components/Login';
 import Footer from './components/Footer';
 import ProductDetail from './components/ProductDetail';
+import Dashboard from './components/Dashboard';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -22,7 +23,8 @@ interface CartItem {
 }
 
 export default function App() {
-  const [view, setView] = useState<'home' | 'store' | 'product' | 'cart' | 'checkout' | 'affiliate' | 'login'>('home');
+  const [view, setView] = useState<'home' | 'store' | 'product' | 'cart' | 'checkout' | 'affiliate' | 'login' | 'dashboard'>('home');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [filterCategory, setFilterCategory] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
@@ -64,16 +66,18 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      <Header
-        onNavigate={(v, cat) => v === 'store' ? navigateToStore(cat) : setView(v)}
-        cartCount={cartCount}
-        onOpenCart={() => setView('cart')}
-        searchQuery={searchQuery}
-        onSearchChange={(q) => {
-          setSearchQuery(q);
-          if (view !== 'store') setView('store');
-        }}
-      />
+      {view !== 'dashboard' && (
+        <Header
+          onNavigate={(v, cat) => v === 'store' ? navigateToStore(cat) : setView(v)}
+          cartCount={cartCount}
+          onOpenCart={() => setView('cart')}
+          searchQuery={searchQuery}
+          onSearchChange={(q) => {
+            setSearchQuery(q);
+            if (view !== 'store') setView('store');
+          }}
+        />
+      )}
 
       <AnimatePresence mode="wait">
         {view === 'home' && (
@@ -190,8 +194,33 @@ export default function App() {
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.5 }}
           >
-            <Login onBack={() => setView('home')} onSwitchToRegister={() => setView('affiliate')} />
+            <Login 
+              onBack={() => setView('home')} 
+              onSwitchToRegister={() => setView('affiliate')} 
+              onLoginSuccess={() => {
+                setIsLoggedIn(true);
+                setView('dashboard');
+              }}
+            />
             <Footer />
+          </motion.div>
+        )}
+
+        {view === 'dashboard' && (
+          <motion.div
+            key="dashboard"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex-1"
+          >
+            <Dashboard 
+              onLogout={() => {
+                setIsLoggedIn(false);
+                setView('home');
+              }} 
+              onNavigateHome={() => setView('home')}
+            />
           </motion.div>
         )}
 
