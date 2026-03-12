@@ -1,7 +1,9 @@
 import { motion } from 'motion/react';
-import { Mail, Lock, ArrowRight, UserPlus, HelpCircle } from 'lucide-react';
+import { Mail, Lock, ArrowRight, UserPlus, HelpCircle, Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react';
 
 export function Login({ onBack, onSwitchToRegister, onLoginSuccess }: { onBack: () => void, onSwitchToRegister: () => void, onLoginSuccess: () => void }) {
+    const [showPassword, setShowPassword] = useState(false);
     const handleSubmit = (e: any) => {
         e.preventDefault();
         onLoginSuccess();
@@ -32,7 +34,7 @@ export function Login({ onBack, onSwitchToRegister, onLoginSuccess }: { onBack: 
                                     required
                                     type="email"
                                     placeholder="seu@email.com"
-                                    className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 pl-12 focus:outline-none focus:border-accent/40 transition-all font-light"
+                                    className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 pl-12 focus:outline-none focus:border-accent/40 transition-all font-medium text-slate-900"
                                 />
                             </div>
                         </div>
@@ -46,10 +48,17 @@ export function Login({ onBack, onSwitchToRegister, onLoginSuccess }: { onBack: 
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
                                 <input
                                     required
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     placeholder="••••••••"
-                                    className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 pl-12 focus:outline-none focus:border-accent/40 transition-all font-light"
+                                    className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 pl-12 pr-12 focus:outline-none focus:border-accent/40 transition-all font-medium text-slate-900"
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-accent transition-colors"
+                                >
+                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
                             </div>
                         </div>
 
