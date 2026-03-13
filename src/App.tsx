@@ -10,7 +10,9 @@ import { Login } from './components/Login';
 import Footer from './components/Footer';
 import ProductDetail from './components/ProductDetail';
 import Dashboard from './components/Dashboard';
-import { useState } from 'react';
+import { AdminLogin } from './components/AdminLogin';
+import AdminDashboard from './components/AdminDashboard';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface CartItem {
@@ -23,11 +25,19 @@ interface CartItem {
 }
 
 export default function App() {
-  const [view, setView] = useState<'home' | 'store' | 'product' | 'cart' | 'checkout' | 'affiliate' | 'login' | 'dashboard'>('home');
+  const [view, setView] = useState<'home' | 'store' | 'product' | 'cart' | 'checkout' | 'affiliate' | 'login' | 'dashboard' | 'admin-login' | 'admin-dashboard'>('home');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [filterCategory, setFilterCategory] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    // Check if URL has #admin to open admin panel
+    if (window.location.hash === '#admin') {
+      setView('admin-login');
+    }
+  }, []);
 
   const navigateToStore = (category?: string) => {
     if (category) setFilterCategory(category);
@@ -66,9 +76,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      {view !== 'dashboard' && (
+      {view !== 'dashboard' && view !== 'admin-dashboard' && view !== 'admin-login' && (
         <Header
-          onNavigate={(v, cat) => v === 'store' ? navigateToStore(cat) : setView(v)}
+          onNavigate={(v, cat) => v === 'store' ? navigateToStore(cat) : setView(v === 'admin' ? 'admin-login' : v)}
           cartCount={cartCount}
           onOpenCart={() => setView('cart')}
           searchQuery={searchQuery}
@@ -217,6 +227,43 @@ export default function App() {
             <Dashboard 
               onLogout={() => {
                 setIsLoggedIn(false);
+                setView('home');
+              }} 
+              onNavigateHome={() => setView('home')}
+            />
+          </motion.div>
+        )}
+
+        {view === 'admin-login' && (
+          <motion.div
+            key="admin-login"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.5 }}
+            className="flex-1 flex"
+          >
+            <AdminLogin 
+              onBack={() => setView('home')} 
+              onLoginSuccess={() => {
+                setIsAdminLoggedIn(true);
+                setView('admin-dashboard');
+              }}
+            />
+          </motion.div>
+        )}
+
+        {view === 'admin-dashboard' && (
+          <motion.div
+            key="admin-dashboard"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex-1"
+          >
+            <AdminDashboard 
+              onLogout={() => {
+                setIsAdminLoggedIn(false);
                 setView('home');
               }} 
               onNavigateHome={() => setView('home')}

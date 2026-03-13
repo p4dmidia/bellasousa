@@ -1,0 +1,94 @@
+import { motion } from 'motion/react';
+import { Mail, Lock, ArrowRight, ShieldCheck, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react';
+
+interface AdminLoginProps {
+    onBack: () => void;
+    onLoginSuccess: () => void;
+}
+
+export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
+    const [showPassword, setShowPassword] = useState(false);
+    
+    const handleSubmit = (e: any) => {
+        e.preventDefault();
+        onLoginSuccess();
+    };
+
+    return (
+        <div className="flex-1 bg-[#130d0d] flex items-center justify-center p-6 min-h-screen">
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="w-full max-w-md relative"
+            >
+                {/* Decorative glow */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-accent/20 rounded-full blur-[100px] pointer-events-none" />
+
+                <div className="bg-[#1a1414] p-10 rounded-[40px] border border-accent/20 shadow-2xl relative z-10 overflow-hidden">
+                    <button 
+                        onClick={onBack}
+                        className="absolute top-8 left-8 text-slate-400 hover:text-white transition-colors"
+                        aria-label="Voltar"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                    </button>
+
+                    <div className="flex justify-center mb-8 mt-4">
+                         <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center shadow-lg shadow-accent/20">
+                            <ShieldCheck className="w-8 h-8 text-primary" />
+                         </div>
+                    </div>
+
+                    <div className="text-center mb-10">
+                        <h2 className="text-white text-3xl font-serif mb-2">Acesso Admin</h2>
+                        <p className="text-accent text-xs uppercase tracking-widest font-bold">Gestão Bella Sousa</p>
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">E-mail Administrativo</label>
+                            <div className="relative">
+                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-accent/50" />
+                                <input
+                                    required
+                                    type="email"
+                                    placeholder="admin@bellasousa.com.br"
+                                    className="w-full bg-[#130d0d] border border-accent/20 text-white placeholder-slate-600 rounded-xl p-4 pl-12 focus:outline-none focus:border-accent transition-all font-medium"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Senha Mestra</label>
+                            <div className="relative">
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-accent/50" />
+                                <input
+                                    required
+                                    type={showPassword ? "text" : "password"}
+                                    placeholder="••••••••"
+                                    className="w-full bg-[#130d0d] border border-accent/20 text-white placeholder-slate-600 rounded-xl p-4 pl-12 pr-12 focus:outline-none focus:border-accent transition-all font-medium"
+                                />
+                                 <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-accent transition-colors"
+                                >
+                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <button
+                            type="submit"
+                            className="w-full bg-accent hover:bg-accent/90 text-primary py-5 rounded-2xl font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-3 transition-all shadow-lg shadow-accent/20 group mt-8"
+                        >
+                            Acessar Painel
+                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                        </button>
+                    </form>
+                </div>
+            </motion.div>
+        </div>
+    );
+}

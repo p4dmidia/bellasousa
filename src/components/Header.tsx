@@ -11,7 +11,7 @@ export default function Header({
   searchQuery,
   onSearchChange
 }: {
-  onNavigate: (view: 'home' | 'store' | 'affiliate' | 'login', category?: string) => void,
+  onNavigate: (view: 'home' | 'store' | 'affiliate' | 'login' | 'admin', category?: string) => void,
   cartCount: number,
   onOpenCart: () => void,
   searchQuery: string,
