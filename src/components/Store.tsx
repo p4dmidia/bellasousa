@@ -1,66 +1,17 @@
 import { useState, useMemo, useEffect } from 'react';
-
 import { motion, AnimatePresence } from 'motion/react';
-import { Filter, Search, X, ChevronDown, SlidersHorizontal, ShoppingBag } from 'lucide-react';
+import { Filter, Search, X, ShoppingBag } from 'lucide-react';
+import { supabase, ORGANIZATION_ID } from '../lib/supabase';
 
-const ALL_PRODUCTS = [
-    {
-        id: 1,
-        name: "Sérum Artesanal",
-        category: "Cosméticos",
-        price: 45.00,
-        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuC_LLBjj65MaK_mDaDfqHd51QWK1MzKShe2GadDLaAaW0KO5W5P8dYluP4woZ7QBttnFtO--OxLnpgW6azLy3w1_evjYhi-OaPnJ-BSVQubmeXG8Mcq1qto9d6mJBdbGjNi10bDyLgZKA2_NFK5t5zs5Xxnm9t5mpQc3pFNgo42nK42AJQ5Bk7hUEOfozcSql0ORtVavqkH9B88BdGDutG4oDXL_XTrFdUMhzylRjHzAezxS8hdKpscZBjep-hxHmlz8ab3oPphgGNX"
-    },
-    {
-        id: 2,
-        name: "Robe de Seda Boutique",
-        category: "Lingerie",
-        price: 320.00,
-        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuBrkTZIq1IuwZIpzftZnQaM388t-t1NsOsIUDYzfteKuuMYO5jQRoKoH09JseHmO1qlV7NZxQnXaK28kOH1OeMs7xQ8n9_RGlgycGifvlCm6cWSRcvGY-TjyKBRe2wxZzTSz6ZN4QV8xZSUYX4e-B6PEn-rK0vb7PTJpsr8TGchpMM43GZowG15qv0nErizKz62oPzUlbLbd2RPKCFFbL59ORleBZ6Kex3jHDhawjr6_yIa515dZBsdOUMMUyxnrJkcdOJD6zLWYpEg"
-    },
-    {
-        id: 3,
-        name: "Conjunto de Pincéis Premium",
-        category: "Acessórios",
-        price: 85.00,
-        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuBfJaNjMbpJC1pOikfq5ourHNCvTifM04kyXHA4NIgT-KiESWeRCBIaA9i-zzwbI7SKnBpUKwNurTFPmWc15QRssyLitsR8Ieg0baD3HDnH2hqNrpQsynZ4bSy0oQlaKVklg7jOVrqZBoRJgXy5naJt01Pwnw-GiJebvYa18IDY-Y77lI-TWmgo3cJeXgbR0q3RYEPAp_UmyD6xqOZUODhlOqFyCvoH1hnCfeQP-d-yVe9QsJNh6hTodsFbH_yWZODuy0rHNIcHr5bv"
-    },
-    {
-        id: 4,
-        name: "Bodysuit de Renda Midnight",
-        category: "Lingerie",
-        price: 245.00,
-        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuC6FUBoNtrvOHL1z3taG4BHmGnkr35bPhvL62o_MEdFZm94OxCnGqpoOWRH9mImTDk1q5dYRQmFE7A31CSoTYMhmg3nU6yK-UjSoEjIETIMz_6yRcNYxM85HRLh_FmhzZSsqHqaE2Pn2LL8m37eUuyd8FBJaao9Vgx_kQuuatTMDMoUJDtZcg9J9Zk8jxPcIpFKL4vPHYIGFaJo9EWA9TkrDfuWar4lmFJ062QaX-RVVtXEQOUU2gWpJ9_CLciWCMhez8_vzxrm1hCv"
-    },
-    {
-        id: 5,
-        name: "Máscara de Renda Chantilly",
-        category: "Lingerie",
-        price: 85.00,
-        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuB6Siwu_Q9LesAP1uYrLc-JrcKdJ0cuNhh5pJGVoRDY57XEyx2w810ZKpZuwQfNyH1tfrPJuUdV8yw4HzaWnURve5A_lOpvfZaUW50XC6u_RXD6-FsOcBpqrRH-NA-a2vu8l43L-Xb5Yl6f2p2qvm45mZHR-HDOhLHnmAgfrlkIrsvD_rNU9Nc5eshQ8clR1yKrOBwrwf4bKq3UcnGyts-AraQxE5b640UxcF0rU0Qosuzgifq2vEcVAcgym7KSM5bXLJ7xqQ2ROKs7"
-    },
-    {
-        id: 6,
-        name: "Meias Bordadas",
-        category: "Acessórios",
-        price: 65.00,
-        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuC3ZvILAiOjC2-s1IEzXi7A_x2fXuXJcnCGTcx8Mu9KE26B-NKKJsjThUvCj6TdtkkKNqlhzpf7cjReX9B_vheqi56WvK6yXbEyy2lH_KD53-d_TrLT6lo1ow-BbP_9HiMut4rSaRO7GDf7w5Z6vV6tpD-wwuYh9nz4s33AZn8OqAXuNm5wGYk9s2wRFZ8o74H-2ZoFHuzALKR4Tu-uLZXOXxkdK4jiR_EV3rSTmE9rxq5QleSk7iLt2yWkmyOLNrUTrHpDbUHEZ6sI"
-    },
-    {
-        id: 7,
-        name: "Perfume Nocturnal Rose",
-        category: "Cosméticos",
-        price: 180.00,
-        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuBqOPlTnfyKqgJR2cylQo0TovU7oV5av0MRdt2D5Gcn-K3tBTevrVTamwAE-h9j5cHw5XaQidICVDC3uNqvYSN-7TwU3fRJNjdV2MnT_cdF71-WbBH6SrlLerbwWv19o5wA8FOlZGh5j7tWUSSDkvOEPM59Dq5QbMeSnrVynTJgU8OAyID8Q5c9Orn6mtnPqzXQiJz6j7H183QJx_XXvvnowN8vgpbQAE2OsJtiD4OsiPL7t0yzuqF3qCiDD0DZEGmYAl5odu8LAltD"
-    },
-    {
-        id: 8,
-        name: "Creme para Mãos Hidratação Intensa",
-        category: "Cosméticos",
-        price: 35.00,
-        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuCGDm5jUdty9MtGor82NnllcjHI7U6cy0_c9N2bL3oAhLatHi9_5s7eMgcU_Fe-m3kcpIHsw7piMQa-6EEcZS4t8jXb1qMihksXewkj1vbGE0Y2wi9_Ic6vecYhhqDjvHm9q6lnyvUyU15ZJ9AhmVjnbefuDwLApKptqoHayMU_lXzy952boa4VlDiiIs1ac-LGhK2tvNABw_Q5FjzdaVh3_x6hCmhUY5Fy2-Az9cwjMOAEGZW1m2YxMkuTlfcQi15fgkUcElWAToDR"
-    }
-];
+interface Product {
+    id: string;
+    name: string;
+    description: string;
+    price: number;
+    stock_quantity: number;
+    image_url: string;
+    category_id: number;
+}
 
 const CATEGORIES = ["Todos", "Lingerie", "Cosméticos", "Casa", "Acessórios"];
 
@@ -72,17 +23,39 @@ export default function Store({
     onSearchChange
 }: {
     onAddToCart: (product: any) => void,
-    onProductClick: () => void,
+    onProductClick: (product: any) => void,
     initialCategory?: string,
     searchQuery?: string,
     onSearchChange?: (q: string) => void
 }) {
 
+    const [products, setProducts] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState(searchQuery || "");
     const [selectedCategory, setSelectedCategory] = useState(initialCategory || "Todos");
     const [sortBy, setSortBy] = useState("Novidades");
     const [priceRange, setPriceRange] = useState(500);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+    useEffect(() => {
+        const fetchProducts = async () => {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('products')
+                .select('*')
+                .eq('organization_id', ORGANIZATION_ID)
+                .eq('is_active', true);
+
+            if (error) {
+                console.error('Error fetching products:', error);
+            } else {
+                setProducts(data || []);
+            }
+            setLoading(false);
+        };
+
+        fetchProducts();
+    }, []);
 
     // Sincronizar com a categoria vinda da navegação
     useEffect(() => {
@@ -101,10 +74,13 @@ export default function Store({
 
 
     const filteredProducts = useMemo(() => {
-        return ALL_PRODUCTS.filter(product => {
+        return products.filter(product => {
             const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase()) ||
-                product.category.toLowerCase().includes(search.toLowerCase());
-            const matchesCategory = selectedCategory === "Todos" || product.category === selectedCategory;
+                (product.description && product.description.toLowerCase().includes(search.toLowerCase()));
+            
+            // Map category_id to name for filtering if needed, or just use category names if they match
+            // For now, keeping it simple as we don't have a category name in products table yet
+            const matchesCategory = selectedCategory === "Todos"; // || product.category === selectedCategory;
             const matchesPrice = product.price <= priceRange;
             return matchesSearch && matchesCategory && matchesPrice;
         }).sort((a, b) => {
@@ -112,7 +88,7 @@ export default function Store({
             if (sortBy === "Maior Preço") return b.price - a.price;
             return 0; // Novidades (ordem padrão do ID por enquanto)
         });
-    }, [search, selectedCategory, priceRange, sortBy]);
+    }, [products, search, selectedCategory, priceRange, sortBy]);
 
     return (
         <div className="bg-white pt-12 pb-24">

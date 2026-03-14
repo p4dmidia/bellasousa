@@ -31,6 +31,7 @@ export default function App() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [filterCategory, setFilterCategory] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
   useEffect(() => {
     // Check if URL has #admin to open admin panel
@@ -43,6 +44,12 @@ export default function App() {
     if (category) setFilterCategory(category);
     setSearchQuery(""); // Limpa a busca ao navegar por categoria
     setView('store');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const openProduct = (product: any) => {
+    setSelectedProduct(product);
+    setView('product');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -113,7 +120,7 @@ export default function App() {
           >
             <Store
               onAddToCart={(p) => addToCart(p)}
-              onProductClick={() => setView('product')}
+              onProductClick={(p) => openProduct(p)}
               initialCategory={filterCategory}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
@@ -131,14 +138,9 @@ export default function App() {
             transition={{ duration: 0.5 }}
           >
             <ProductDetail
-              onBack={() => setView('home')}
-              onAddToCart={() => addToCart({
-                id: 9,
-                name: "Sérum Facial de Lótus",
-                price: 125.00,
-                category: "Cosméticos",
-                image: "https://lh3.googleusercontent.com/aida-public/AB6AXuC_LLBjj65MaK_mDaDfqHd51QWK1MzKShe2GadDLaAaW0KO5W5P8dYluP4woZ7QBttnFtO--OxLnpgW6azLy3w1_evjYhi-OaPnJ-BSVQubmeXG8Mcq1qto9d6mJBdbGjNi10bDyLgZKA2_NFK5t5zs5Xxnm9t5mpQc3pFNgo42nK42AJQ5Bk7hUEOfozcSql0ORtVavqkH9B88BdGDutG4oDXL_XTrFdUMhzylRjHzAezxS8hdKpscZBjep-hxHmlz8ab3oPphgGNX"
-              })}
+              product={selectedProduct}
+              onBack={() => setView('store')}
+              onAddToCart={() => addToCart(selectedProduct)}
             />
             <Footer />
           </motion.div>
@@ -191,7 +193,14 @@ export default function App() {
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.5 }}
           >
-            <Affiliate onBack={() => setView('home')} />
+            <Affiliate 
+              onBack={() => setView('home')} 
+              onSuccess={() => setView('login')} 
+              onLoginSuccess={() => {
+                setIsLoggedIn(true);
+                setView('dashboard');
+              }}
+            />
             <Footer />
           </motion.div>
         )}

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   LogOut, 
@@ -14,8 +15,8 @@ import {
   CheckCircle,
   FileText
 } from 'lucide-react';
-import { useState } from 'react';
 import { initialNetworkData, TreeNode } from './NetworkTree';
+import { supabase, ORGANIZATION_ID } from '../lib/supabase';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -33,6 +34,47 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
   const [commissionType, setCommissionType] = useState<'fixed' | 'percentage'>('percentage');
   const [networkDepth, setNetworkDepth] = useState(5);
   const [levelCommissions, setLevelCommissions] = useState<string[]>(['10', '5', '3', '2', '1']);
+
+  // Real Data State
+  const [products, setProducts] = useState<any[]>([]);
+  const [affiliates, setAffiliates] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      
+      // Fetch Products
+      const { data: productsData } = await supabase
+        .from('products')
+        .select('*')
+        .eq('organization_id', ORGANIZATION_ID);
+      
+      // Fetch Affiliates (User Profiles with non-member role if applicable, or just all users for this org)
+      const { data: affiliatesData } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('organization_id', ORGANIZATION_ID);
+
+      // Fetch Orders
+      const { data: ordersData } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          user_profiles!orders_user_id_fkey (full_name)
+        `)
+        .eq('organization_id', ORGANIZATION_ID)
+        .order('created_at', { ascending: false });
+
+      setProducts(productsData || []);
+      setAffiliates(affiliatesData || []);
+      setOrders(ordersData || []);
+      setLoading(false);
+    };
+
+    fetchData();
+  }, []);
 
   const handleDepthChange = (newDepth: number) => {
     if (newDepth < 1 || newDepth > 10) return;
@@ -54,34 +96,22 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
     setLevelCommissions(newCommissions);
   };
 
+  // Calculate stats from real data
+  const totalRevenue = orders.reduce((acc, order) => acc + (order.total_amount || 0), 0);
+  const pendingOrders = orders.filter(o => o.status === 'pending').length;
+  const newAffiliates = affiliates.length; // Simplified for now
+  const averageTicket = orders.length > 0 ? totalRevenue / orders.length : 0;
+
   const stats = [
-    { label: 'Receita Total (Mês)', value: 'R$ 124.500,00', icon: <DollarSign className="w-5 h-5" />, trend: '+15%', color: 'from-accent to-accent/50' },
-    { label: 'Pedidos Pendentes', value: '45', icon: <ShoppingCart className="w-5 h-5" />, trend: 'Normal', color: 'from-blue-500 to-blue-400' },
-    { label: 'Novos Afiliados', value: '12', icon: <Users className="w-5 h-5" />, trend: '+3%', color: 'from-purple-500 to-purple-400' },
-    { label: 'Ticket Médio', value: 'R$ 380,00', icon: <TrendingUp className="w-5 h-5" />, trend: '+5%', color: 'from-green-500 to-green-400' },
+    { label: 'Receita Total', value: `R$ ${totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <DollarSign className="w-5 h-5" />, trend: 'Real', color: 'from-accent to-accent/50' },
+    { label: 'Pedidos Realizados', value: orders.length.toString(), icon: <ShoppingCart className="w-5 h-5" />, trend: 'Total', color: 'from-blue-500 to-blue-400' },
+    { label: 'Total Afiliados', value: affiliates.length.toString(), icon: <Users className="w-5 h-5" />, trend: 'Base', color: 'from-purple-500 to-purple-400' },
+    { label: 'Ticket Médio', value: `R$ ${averageTicket.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <TrendingUp className="w-5 h-5" />, trend: 'Média', color: 'from-green-500 to-green-400' },
   ];
 
-  const mockProducts = [
-    { id: 1, name: 'Sérum Facial de Lótus', stock: 120, price: 'R$ 125,00', status: 'Ativo' },
-    { id: 2, name: 'Conjunto Renda Premium', stock: 45, price: 'R$ 189,90', status: 'Ativo' },
-    { id: 3, name: 'Vela Aromática Vanilla', stock: 0, price: 'R$ 89,90', status: 'Esgotado' },
-  ];
-
-  const mockAffiliates = [
-    { id: '1001', name: 'Maria Silva', points: 1250, level: 'Esmeralda', status: 'Ativo', balance: 450.00, totalEarnings: 12400.00, salesCount: 45 },
-    { id: '1002', name: 'Ana Costa', points: 450, level: 'Consultora', status: 'Pendente', balance: 0.00, totalEarnings: 450.00, salesCount: 12 },
-    { id: '1003', name: 'Juliana Paes', points: 3400, level: 'Diamante', status: 'Ativo', balance: 890.50, totalEarnings: 34500.00, salesCount: 128 },
-  ];
-
-  const mockAffiliateSales = [
-    { id: '#4592', date: '13/03/2026', customer: 'João Ferreira', value: 'R$ 245,00', commission: 'R$ 24,50', status: 'Concluído' },
-    { id: '#4591', date: '12/03/2026', customer: 'Carla Dias', value: 'R$ 180,00', commission: 'R$ 18,00', status: 'Concluído' },
-    { id: '#4588', date: '11/03/2026', customer: 'Beto Santos', value: 'R$ 420,00', commission: 'R$ 42,00', status: 'Pendente' },
-  ];
-
-  const filteredAffiliates = mockAffiliates.filter(a => 
-    a.name.toLowerCase().includes(affiliateSearch.toLowerCase()) || 
-    a.id.includes(affiliateSearch)
+  const filteredAffiliates = affiliates.filter(a => 
+    (a.full_name || "").toLowerCase().includes(affiliateSearch.toLowerCase()) || 
+    (a.email || "").toLowerCase().includes(affiliateSearch.toLowerCase())
   );
 
   return (
@@ -267,16 +297,16 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                      {mockProducts.map((p) => (
+                      {products.map((p) => (
                         <tr key={p.id} className="hover:bg-white/5 transition-colors">
                           <td className="p-4 text-sm text-white">{p.name}</td>
-                          <td className="p-4 text-sm text-slate-400">{p.stock} un.</td>
-                          <td className="p-4 text-sm text-white">{p.price}</td>
+                          <td className="p-4 text-sm text-slate-400">{p.stock_quantity} un.</td>
+                          <td className="p-4 text-sm text-white">R$ {p.price?.toFixed(2)}</td>
                           <td className="p-4">
                             <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md ${
-                              p.status === 'Ativo' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+                              p.is_active ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
                             }`}>
-                              {p.status}
+                              {p.is_active ? 'Ativo' : 'Inativo'}
                             </span>
                           </td>
                           <td className="p-4 text-sm text-accent hover:text-white cursor-pointer transition-colors">Editar</td>
@@ -348,13 +378,13 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                         <tr key={a.id} className="hover:bg-white/5 transition-colors">
                           <td className="p-4 text-sm text-white">
                             <div className="flex flex-col">
-                              <span className="font-medium text-white">{a.name}</span>
-                              <span className="text-[10px] text-slate-500 uppercase tracking-tighter">ID: #{a.id}</span>
+                              <span className="font-medium text-white">{a.full_name}</span>
+                              <span className="text-[10px] text-slate-500 uppercase tracking-tighter">ID: #{a.id.substring(0, 8)}</span>
                             </div>
                           </td>
-                          <td className="p-4 text-sm text-accent">{a.level}</td>
-                          <td className="p-4 text-sm text-white">R$ {a.totalEarnings.toLocaleString('pt-BR')}</td>
-                          <td className="p-4 text-sm font-bold text-accent">R$ {a.balance.toLocaleString('pt-BR')}</td>
+                          <td className="p-4 text-sm text-accent">{a.role}</td>
+                          <td className="p-4 text-sm text-white">R$ {a.total_earnings?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          <td className="p-4 text-sm font-bold text-accent">R$ {a.balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                           <td className="p-4 text-sm flex gap-3">
                              <button 
                                className="text-accent hover:text-white cursor-pointer transition-colors flex items-center gap-1"
@@ -365,7 +395,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                              >
                                <FileText className="w-4 h-4" /> Gerenciar
                              </button>
-                             {a.status === 'Pendente' && <span className="text-green-400 hover:text-white cursor-pointer transition-colors">Aprovar</span>}
+                             {a.status === 'pending' && <span className="text-green-400 hover:text-white cursor-pointer transition-colors">Aprovar</span>}
                           </td>
                         </tr>
                       ))}
@@ -534,10 +564,10 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
               <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
                   <div className="flex items-center gap-4 mb-2">
-                    <h3 className="text-2xl font-serif text-white">{selectedAffiliate.name}</h3>
-                    <span className="text-[10px] bg-accent/20 text-accent px-2 py-1 rounded font-bold uppercase tracking-widest">{selectedAffiliate.level}</span>
+                    <h3 className="text-2xl font-serif text-white">{selectedAffiliate.full_name}</h3>
+                    <span className="text-[10px] bg-accent/20 text-accent px-2 py-1 rounded font-bold uppercase tracking-widest">{selectedAffiliate.role}</span>
                   </div>
-                  <p className="text-slate-400 text-sm">Gerenciamento de conta e monitoramento de performance.</p>
+                  <p className="text-slate-400 text-sm">{selectedAffiliate.email}</p>
                 </div>
                 
                 <div className="flex gap-2 bg-[#130d0d] p-1 rounded-xl border border-white/5">
@@ -569,7 +599,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="bg-[#130d0d] p-6 rounded-2xl border border-white/5">
                         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Saldo a Pagar</p>
-                        <p className="text-2xl font-serif text-accent">R$ {selectedAffiliate.balance.toLocaleString('pt-BR')}</p>
+                        <p className="text-2xl font-serif text-accent">R$ {selectedAffiliate.balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                       </div>
                       <div className="bg-[#130d0d] p-6 rounded-2xl border border-white/5">
                         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Total Recebido</p>
@@ -577,18 +607,18 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                       </div>
                       <div className="bg-[#130d0d] p-6 rounded-2xl border border-white/5">
                         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Total de Vendas</p>
-                        <p className="text-2xl font-serif text-white">{selectedAffiliate.salesCount}</p>
+                        <p className="text-2xl font-serif text-white">{orders.filter(o => o.user_id === selectedAffiliate.id).length}</p>
                       </div>
                     </div>
 
                     <div className="flex flex-col md:flex-row gap-4 items-center justify-between p-6 bg-accent/5 border border-accent/20 rounded-2xl">
                       <div>
                         <h4 className="text-accent font-bold uppercase text-xs tracking-widest mb-1">Liquidar Comissão</h4>
-                        <p className="text-xs text-slate-400">Clique para confirmar que o pagamento de R$ {selectedAffiliate.balance.toLocaleString('pt-BR')} foi realizado via PIX/Transferência.</p>
+                        <p className="text-xs text-slate-400">Clique para confirmar que o pagamento de R$ {selectedAffiliate.balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} foi realizado via PIX/Transferência.</p>
                       </div>
                       <button 
                         onClick={() => {
-                          alert(`Pagamento de R$ ${selectedAffiliate.balance} confirmado para ${selectedAffiliate.name}!`);
+                          alert(`Pagamento de R$ ${selectedAffiliate.balance} confirmado para ${selectedAffiliate.full_name}!`);
                           setSelectedAffiliate(null);
                         }}
                         className="bg-accent text-primary px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-[10px] hover:bg-accent/90 transition-all flex items-center gap-2"
@@ -612,14 +642,14 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {mockAffiliateSales.map((sale, idx) => (
+                        {orders.filter(o => o.referrer_id === selectedAffiliate.id).map((sale, idx) => (
                           <tr key={idx} className="hover:bg-white/5 transition-colors">
-                            <td className="p-4 text-xs text-slate-400">{sale.date}</td>
-                            <td className="p-4 text-xs text-white">{sale.customer}</td>
-                            <td className="p-4 text-xs text-white">{sale.value}</td>
-                            <td className="p-4 text-xs text-accent font-bold">{sale.commission}</td>
+                            <td className="p-4 text-xs text-slate-400">{new Date(sale.created_at).toLocaleDateString('pt-BR')}</td>
+                            <td className="p-4 text-xs text-white">{sale.user_profiles?.full_name || 'Cliente'}</td>
+                            <td className="p-4 text-xs text-white">R$ {sale.total_amount?.toFixed(2)}</td>
+                            <td className="p-4 text-xs text-accent font-bold">R$ {(sale.commission_amount || 0).toFixed(2)}</td>
                             <td className="p-4">
-                              <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${sale.status === 'Concluído' ? 'bg-green-500/10 text-green-400' : 'bg-yellow-500/10 text-yellow-500'}`}>
+                              <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${sale.status === 'completed' ? 'bg-green-500/10 text-green-400' : 'bg-yellow-500/10 text-yellow-500'}`}>
                                 {sale.status}
                               </span>
                             </td>

@@ -1,12 +1,29 @@
 import { motion } from 'motion/react';
-import { Mail, Lock, ArrowRight, UserPlus, HelpCircle, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, ArrowRight, UserPlus, HelpCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useState } from 'react';
+import { supabase } from '../lib/supabase';
 
 export function Login({ onBack, onSwitchToRegister, onLoginSuccess }: { onBack: () => void, onSwitchToRegister: () => void, onLoginSuccess: () => void }) {
     const [showPassword, setShowPassword] = useState(false);
-    const handleSubmit = (e: any) => {
+    const [loading, setLoading] = useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+
+    const handleSubmit = async (e: any) => {
         e.preventDefault();
-        onLoginSuccess();
+        setLoading(true);
+
+        const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password
+        });
+
+        if (error) {
+            alert("Erro ao entrar: " + error.message);
+        } else {
+            onLoginSuccess();
+        }
+        setLoading(false);
     };
 
     return (
@@ -34,6 +51,8 @@ export function Login({ onBack, onSwitchToRegister, onLoginSuccess }: { onBack: 
                                     required
                                     type="email"
                                     placeholder="seu@email.com"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
                                     className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 pl-12 focus:outline-none focus:border-accent/40 transition-all font-medium text-slate-900"
                                 />
                             </div>
@@ -50,6 +69,8 @@ export function Login({ onBack, onSwitchToRegister, onLoginSuccess }: { onBack: 
                                     required
                                     type={showPassword ? "text" : "password"}
                                     placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
                                     className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 pl-12 pr-12 focus:outline-none focus:border-accent/40 transition-all font-medium text-slate-900"
                                 />
                                 <button
@@ -64,10 +85,11 @@ export function Login({ onBack, onSwitchToRegister, onLoginSuccess }: { onBack: 
 
                         <button
                             type="submit"
-                            className="w-full bg-primary hover:bg-primary/95 text-white py-5 rounded-2xl font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-primary/20 group"
+                            disabled={loading}
+                            className="w-full bg-primary hover:bg-primary/95 text-white py-5 rounded-2xl font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-primary/20 group disabled:opacity-50"
                         >
-                            Entrar no Painel
-                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Entrar no Painel"}
+                            {!loading && <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
                         </button>
                     </form>
 

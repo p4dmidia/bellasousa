@@ -1,11 +1,55 @@
+import { useState } from 'react';
 import { motion } from 'motion/react';
-import { Users, TrendingUp, Award, CheckCircle2, ArrowRight, DollarSign, Zap } from 'lucide-react';
+import { Users, TrendingUp, Award, CheckCircle2, ArrowRight, DollarSign, Zap, Loader2 } from 'lucide-react';
+import { supabase, ORGANIZATION_ID } from '../lib/supabase';
 
-export function Affiliate({ onBack }: { onBack: () => void }) {
-    const handleSubmit = (e: any) => {
+export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () => void, onSuccess: () => void, onLoginSuccess: (session: any) => void }) {
+    const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState({
+        fullName: '',
+        whatsapp: '',
+        email: '',
+        city: '',
+        password: '',
+        pixKey: ''
+    });
+
+    const handleSubmit = async (e: any) => {
         e.preventDefault();
-        alert("Obrigado pelo interesse! Nossa equipe entrará em contato em breve.");
-        onBack();
+        setLoading(true);
+
+        const [nome, ...sobrenomeParts] = formData.fullName.split(' ');
+        const sobrenome = sobrenomeParts.join(' ');
+
+        const { data, error } = await supabase.auth.signUp({
+            email: formData.email,
+            password: formData.password,
+            options: {
+                data: {
+                    nome,
+                    sobrenome,
+                    full_name: formData.fullName,
+                    whatsapp: formData.whatsapp,
+                    city: formData.city,
+                    pix_key: formData.pixKey,
+                    login: formData.email.split('@')[0], // Default login as part of email
+                    organization_id: ORGANIZATION_ID
+                }
+            }
+        });
+
+        if (error) {
+            alert("Erro ao cadastrar: " + error.message);
+        } else {
+            if (data.session) {
+                // Auto-login successful (e.g. email confirmation disabled)
+                onLoginSuccess(data.session);
+            } else {
+                // Redirect to login as requested
+                onSuccess();
+            }
+        }
+        setLoading(false);
     };
 
     return (
@@ -163,41 +207,47 @@ export function Affiliate({ onBack }: { onBack: () => void }) {
                         <div className="text-center mb-12">
                             <Award className="w-12 h-12 text-accent mx-auto mb-6" />
                             <h2 className="text-primary text-3xl md:text-4xl font-serif mb-4">Faça Parte da Elite</h2>
-                            <p className="text-slate-500 font-light">Preencha os dados abaixo e entraremos em contato para uma entrevista de parceria.</p>
+                            <p className="text-slate-500 font-light">Crie sua conta agora para acessar seu Escritório Virtual Bella Sousa.</p>
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-8">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Nome Completo</label>
-                                    <input required type="text" placeholder="Maria Silva" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" />
+                                    <input required type="text" placeholder="Maria Silva" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" 
+                                        value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">WhatsApp</label>
-                                    <input required type="tel" placeholder="(00) 00000-0000" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" />
+                                    <input required type="tel" placeholder="(00) 00000-0000" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" 
+                                        value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">E-mail</label>
-                                    <input required type="email" placeholder="maria@exemplo.com" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" />
+                                    <input required type="email" placeholder="maria@exemplo.com" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" 
+                                        value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Cidade / UF</label>
-                                    <input required type="text" placeholder="São Paulo - SP" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" />
+                                    <input required type="text" placeholder="São Paulo - SP" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" 
+                                        value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
                                 </div>
                             </div>
 
                             <div className="space-y-2">
                                 <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Senha de Acesso</label>
-                                <input required type="password" placeholder="••••••••" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" />
+                                <input required type="password" placeholder="••••••••" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" 
+                                    value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Chave PIX (Para recebimento de comissões)</label>
-                                <input required type="text" placeholder="CPF, E-mail ou Telefone" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" />
+                                <input required type="text" placeholder="CPF, E-mail ou Telefone" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" 
+                                    value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} />
                             </div>
 
-                            <button type="submit" className="w-full bg-primary hover:bg-primary/95 text-white py-5 rounded-2xl font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-primary/20">
-                                Enviar minha Solicitação
-                                <CheckCircle2 className="w-5 h-5" />
+                            <button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/95 text-white py-5 rounded-2xl font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-primary/20 disabled:opacity-50">
+                                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Criar Minha Conta"}
+                                {!loading && <CheckCircle2 className="w-5 h-5" />}
                             </button>
                         </form>
                     </div>
