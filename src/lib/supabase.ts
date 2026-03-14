@@ -1,15 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = 'https://clnuievcdnbwqbyqhwys.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsbnVpZXZjZG5id3FieXFod3lzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxMTQ5MzAsImV4cCI6MjA4NzY5MDkzMH0.ACpA-x-7OMjom6lEe0FeVc8oXWkNrOukup7YuUnFqAE';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Supabase environment variables are missing! Check your .env file.');
-}
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
-
-export const ORGANIZATION_ID = import.meta.env.VITE_ORGANIZATION_ID;
+export const ORGANIZATION_ID = '512f9aeb-683a-49c0-9731-76a7c8d10e8d';
 
 // Helper function to ensure all queries include the mandatory organization filter
 export const tenantQuery = (table: string) => {
