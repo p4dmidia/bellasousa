@@ -79,28 +79,51 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         setProfile(profileData);
         
         // Fetch All Users for this organization to build network and map names
-        // Note: RLS might restrict this for non-admins.
-        const { data: allUsers } = await supabase
+        // We use '*' to avoid 400 errors with missing columns and log them for diagnosis
+        const { data: allUsers, error: usersError } = await supabase
           .from('user_profiles')
-          .select('id, full_name, role, avatar_url, referrer_id')
+          .select('*')
           .eq('organization_id', ORGANIZATION_ID);
         
+        if (usersError) console.error("Dashboard: Error fetching users:", usersError);
         const usersList = allUsers || [];
-        const network = usersList.filter(p => p.referrer_id === user.id);
+        
+        if (usersList.length > 0) {
+          console.log("Dashboard: user_profiles columns:", Object.keys(usersList[0]));
+        }
+
+        // Try to identify the referral column (fallback logic)
+        const findNetwork = (all: any[], targetId: string) => {
+          return all.filter(p => 
+            p.referrer_id === targetId || 
+            p.parent_id === targetId || 
+            p.sponsor_id === targetId ||
+            p.referred_by === targetId
+          );
+        };
+
+        const network = findNetwork(usersList, user.id);
         console.log("Dashboard: My Network count:", network.length);
         setMyNetwork(network);
 
         // Fetch Orders for this organization
-        // We remove the join to avoid 400 errors and RLS conflicts
-        const { data: allOrders } = await supabase
+        // We use '*' to avoid 400 errors
+        const { data: allOrders, error: ordersError } = await supabase
           .from('orders')
           .select('*')
           .eq('organization_id', ORGANIZATION_ID)
           .order('created_at', { ascending: false });
         
+        if (ordersError) console.error("Dashboard: Error fetching orders:", ordersError);
         const ordersList = allOrders || [];
+
+        // Try to identify orders by referrer (fallback logic)
         const myCommOrders = ordersList
-          .filter(o => o.referrer_id === user.id)
+          .filter(o => 
+            o.referrer_id === user.id || 
+            o.affiliate_id === user.id ||
+            o.partner_id === user.id
+          )
           .map(order => ({
             ...order,
             customer_name: usersList.find(u => u.id === order.user_id)?.full_name || 'Cliente'
