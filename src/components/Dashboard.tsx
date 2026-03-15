@@ -198,8 +198,8 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
               <Users className="w-10 h-10 text-accent" />
             )}
           </div>
-          <h2 className="font-serif italic text-xl text-center">{profile?.full_name || 'Carregando...'}</h2>
-          <span className="text-[10px] uppercase tracking-widest text-accent font-bold">{profile?.role || 'Aguarde'}</span>
+          <h2 className="font-serif italic text-xl text-center">{profile?.full_name || 'Consultora'}</h2>
+          <span className="text-[10px] uppercase tracking-widest text-accent font-bold">{profile?.role || 'Prata'}</span>
         </div>
 
         <nav className="flex-1 py-6 px-4 space-y-2">
@@ -291,11 +291,12 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                   <div className="flex-1 lg:w-72 bg-[#1a1414] border border-accent/10 rounded-2xl p-4 flex justify-between items-center group hover:border-accent/40 transition-all">
                     <div>
                       <p className="text-[10px] text-slate-500 uppercase font-black mb-1">Loja Pessoal</p>
-                      <p className="text-xs text-accent truncate">belasousa.com.br/loja?ref=maria</p>
+                      <p className="text-xs text-accent truncate">belasousa.com.br/loja?ref={profile?.id?.substring(0,8)}</p>
                     </div>
                     <button 
                       onClick={() => {
-                        navigator.clipboard.writeText("https://belasousa.com.br/loja?ref=maria");
+                        const link = `${window.location.origin}/loja?ref=${profile?.id}`;
+                        navigator.clipboard.writeText(link);
                         showToast("Link da Loja copiado com sucesso!");
                       }}
                       className="p-2 hover:bg-accent/10 rounded-lg text-accent transition-colors"
@@ -306,11 +307,11 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                   <div className="flex-1 lg:w-72 bg-[#1a1414] border border-accent/10 rounded-2xl p-4 flex justify-between items-center group hover:border-accent/40 transition-all">
                     <div>
                       <p className="text-[10px] text-slate-500 uppercase font-black mb-1">Página de Cadastro</p>
-                      <p className="text-xs text-accent truncate">belasousa.com.br/cadastro?ref={profile?.login || 'id'}</p>
+                      <p className="text-xs text-accent truncate">belasousa.com.br/cadastro?ref={profile?.id?.substring(0,8)}</p>
                     </div>
                     <button 
                       onClick={() => {
-                        const link = `https://belasousa.com.br/cadastro?ref=${profile?.login || profile?.id}`;
+                        const link = `${window.location.origin}/cadastro?ref=${profile?.id}`;
                         navigator.clipboard.writeText(link);
                         showToast("Link de Cadastro copiado com sucesso!");
                       }}
@@ -505,8 +506,8 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                     </div>
                   </div>
                   <h3 className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">A Liberar</h3>
-                  <p className="text-3xl font-serif">R$ 1.840,00</p>
-                  <p className="text-[10px] text-slate-500 mt-2">Próxima liberação em 4 dias</p>
+                  <p className="text-3xl font-serif">R$ {myOrders.filter(o => o.status !== 'completed').reduce((acc, o) => acc + (o.commission_amount || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-[10px] text-slate-500 mt-2">Valores de pedidos pendentes</p>
                 </div>
 
                 <div className="bg-white/5 border border-accent/10 p-8 rounded-[40px] shadow-xl">
@@ -516,8 +517,8 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                     </div>
                   </div>
                   <h3 className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">Total Recebido</h3>
-                  <p className="text-3xl font-serif">R$ 18.920,45</p>
-                  <p className="text-[10px] text-green-400 mt-2 font-bold">+R$ 2.100 este mês</p>
+                  <p className="text-3xl font-serif">R$ {myOrders.filter(o => o.status === 'completed').reduce((acc, o) => acc + (o.commission_amount || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-[10px] text-green-400 mt-2 font-bold">Comissões confirmadas</p>
                 </div>
               </div>
 
