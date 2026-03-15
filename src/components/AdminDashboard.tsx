@@ -60,10 +60,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
       // Fetch Orders
       const { data: ordersData } = await supabase
         .from('orders')
-        .select(`
-          *,
-          user_profiles!orders_user_id_fkey (full_name)
-        `)
+        .select(`*`) // Removed full_name join as it doesn't exist
         .eq('organization_id', ORGANIZATION_ID)
         .order('created_at', { ascending: false });
 
@@ -110,8 +107,8 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
   ];
 
   const filteredAffiliates = affiliates.filter(a => 
-    (a.full_name || "").toLowerCase().includes(affiliateSearch.toLowerCase()) || 
-    (a.email || "").toLowerCase().includes(affiliateSearch.toLowerCase())
+    (a.email || "").toLowerCase().includes(affiliateSearch.toLowerCase()) ||
+    (a.company_name || "").toLowerCase().includes(affiliateSearch.toLowerCase())
   );
 
   return (
@@ -378,7 +375,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                         <tr key={a.id} className="hover:bg-white/5 transition-colors">
                           <td className="p-4 text-sm text-white">
                             <div className="flex flex-col">
-                              <span className="font-medium text-white">{a.full_name}</span>
+                              <span className="font-medium text-white">{a.email?.split('@')[0] || 'Afiliado'}</span>
                               <span className="text-[10px] text-slate-500 uppercase tracking-tighter">ID: #{a.id.substring(0, 8)}</span>
                             </div>
                           </td>
@@ -564,7 +561,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
               <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
                   <div className="flex items-center gap-4 mb-2">
-                    <h3 className="text-2xl font-serif text-white">{selectedAffiliate.full_name}</h3>
+                    <h3 className="text-2xl font-serif text-white">{selectedAffiliate.email?.split('@')[0] || 'Afiliado'}</h3>
                     <span className="text-[10px] bg-accent/20 text-accent px-2 py-1 rounded font-bold uppercase tracking-widest">{selectedAffiliate.role}</span>
                   </div>
                   <p className="text-slate-400 text-sm">{selectedAffiliate.email}</p>
@@ -614,11 +611,12 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                     <div className="flex flex-col md:flex-row gap-4 items-center justify-between p-6 bg-accent/5 border border-accent/20 rounded-2xl">
                       <div>
                         <h4 className="text-accent font-bold uppercase text-xs tracking-widest mb-1">Liquidar Comissão</h4>
-                        <p className="text-xs text-slate-400">Clique para confirmar que o pagamento de R$ {selectedAffiliate.balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} foi realizado via PIX/Transferência.</p>
+                        <p className="text-xs text-slate-400">Clique para confirmar que o pagamento de R$ {(selectedAffiliate.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} foi realizado via PIX/Transferência.</p>
                       </div>
                       <button 
                         onClick={() => {
-                          alert(`Pagamento de R$ ${selectedAffiliate.balance} confirmado para ${selectedAffiliate.full_name}!`);
+                          const affiliateName = selectedAffiliate.email?.split('@')[0] || 'Afiliado';
+                          alert(`Pagamento de R$ ${selectedAffiliate.balance || 0} confirmado para ${affiliateName}!`);
                           setSelectedAffiliate(null);
                         }}
                         className="bg-accent text-primary px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-[10px] hover:bg-accent/90 transition-all flex items-center gap-2"
@@ -645,7 +643,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                         {orders.filter(o => o.referrer_id === selectedAffiliate.id).map((sale, idx) => (
                           <tr key={idx} className="hover:bg-white/5 transition-colors">
                             <td className="p-4 text-xs text-slate-400">{new Date(sale.created_at).toLocaleDateString('pt-BR')}</td>
-                            <td className="p-4 text-xs text-white">{sale.user_profiles?.full_name || 'Cliente'}</td>
+                            <td className="p-4 text-xs text-white">{sale.email?.split('@')[0] || 'Cliente'}</td>
                             <td className="p-4 text-xs text-white">R$ {sale.total_amount?.toFixed(2)}</td>
                             <td className="p-4 text-xs text-accent font-bold">R$ {(sale.commission_amount || 0).toFixed(2)}</td>
                             <td className="p-4">

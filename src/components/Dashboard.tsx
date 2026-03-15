@@ -47,6 +47,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
   };
 
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [myOrders, setMyOrders] = useState<any[]>([]);
   const [myNetwork, setMyNetwork] = useState<any[]>([]);
@@ -60,12 +61,14 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
   useEffect(() => {
     const fetchDashboardData = async () => {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth?.user;
       
       if (!user) {
         onLogout();
         return;
       }
+      setCurrentUser(user);
 
       // Fetch Profile
       const { data: profileData } = await supabase
@@ -73,13 +76,12 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         .select('*')
         .eq('id', user.id)
         .eq('organization_id', ORGANIZATION_ID)
-        .single();
+        .maybeSingle();
       
       if (profileData) {
         setProfile(profileData);
         
         // Fetch All Users for this organization to build network and map names
-        // We use '*' to avoid 400 errors with missing columns and log them for diagnosis
         const { data: allUsers, error: usersError } = await supabase
           .from('user_profiles')
           .select('*')
@@ -87,10 +89,6 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         
         if (usersError) console.error("Dashboard: Error fetching users:", usersError);
         const usersList = allUsers || [];
-        
-        if (usersList.length > 0) {
-          console.log("Dashboard: user_profiles columns:", Object.keys(usersList[0]));
-        }
 
         // Try to identify the referral column (fallback logic)
         const findNetwork = (all: any[], targetId: string) => {
@@ -107,7 +105,6 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         setMyNetwork(network);
 
         // Fetch Orders for this organization
-        // We use '*' to avoid 400 errors
         const { data: allOrders, error: ordersError } = await supabase
           .from('orders')
           .select('*')
@@ -124,20 +121,24 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
             o.affiliate_id === user.id ||
             o.partner_id === user.id
           )
-          .map(order => ({
-            ...order,
-            customer_name: usersList.find(u => u.id === order.user_id)?.full_name || 'Cliente'
-          }));
+          .map(order => {
+            const customer = usersList.find(u => u.id === order.user_id);
+            return {
+              ...order,
+              // Fallback to email/metadata if full_name is missing
+              customer_name: customer?.full_name || customer?.email?.split('@')[0] || 'Cliente'
+            };
+          });
 
         console.log("Dashboard: My Orders count:", myCommOrders.length);
         setMyOrders(myCommOrders);
 
-        // Update Stats
-        const balance = profileData.balance || 0;
-        const totalPoints = 0; // Placeholder for now or calculate from orders if needed
+        // Balance is missing from table based on schema investigation
+        const balanceValue = profileData.balance || 0;
+        const totalPoints = 0;
         
         setStats([
-          { label: 'Saldo Disponível', value: `R$ ${balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Wallet className="w-5 h-5" />, trend: 'Disponível', color: 'bg-green-500' },
+          { label: 'Saldo Disponível', value: `R$ ${balanceValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Wallet className="w-5 h-5" />, trend: 'Disponível', color: 'bg-green-500' },
           { label: 'Pontos de Equipe (Mês)', value: `${totalPoints} pts`, icon: <Target className="w-5 h-5" />, trend: 'Mensal', color: 'bg-accent' },
           { label: 'Consultoras Diretas', value: network.length.toString(), icon: <Users className="w-5 h-5" />, trend: 'Rede', color: 'bg-blue-500' },
           { label: 'Nível Atual', value: profileData.role || 'Consultora', icon: <Award className="w-5 h-5" />, trend: 'Nível', color: 'bg-purple-500' },
@@ -198,7 +199,9 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
               <Users className="w-10 h-10 text-accent" />
             )}
           </div>
-          <h2 className="font-serif italic text-xl text-center">{profile?.full_name || 'Consultora'}</h2>
+          <h2 className="font-serif italic text-xl text-center">
+              {profile?.full_name || currentUser?.user_metadata?.nome || currentUser?.user_metadata?.full_name?.split(' ')[0] || 'Consultora'}
+          </h2>
           <span className="text-[10px] uppercase tracking-widest text-accent font-bold">{profile?.role || 'Prata'}</span>
         </div>
 
@@ -256,7 +259,9 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         <header className="p-8 flex justify-between items-center border-b border-accent/10 sticky top-0 bg-[#130d0d]/80 backdrop-blur-md z-10">
           <div>
             <h1 className="text-3xl font-serif">Escritório Virtual</h1>
-            <p className="text-slate-500 text-sm">Bem-vinda, {profile?.full_name?.split(' ')[0] || 'Consultora'}</p>
+            <p className="text-slate-500 text-sm">
+                Bem-vinda, {profile?.full_name || currentUser?.user_metadata?.nome || currentUser?.user_metadata?.full_name?.split(' ')[0] || 'Consultora'}
+            </p>
           </div>
           <div className="flex items-center gap-6">
             <div className="relative hidden md:block">
@@ -458,7 +463,9 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                                 <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-bold">
                                   {row.full_name?.substring(0,2).toUpperCase()}
                                 </div>
-                                <span className="font-medium text-sm">{row.full_name}</span>
+                                <span className="font-medium text-sm">
+                                    {row.full_name || row.email?.split('@')[0] || 'Consultora'}
+                                </span>
                               </div>
                             </td>
                             <td className="py-4 text-sm font-light text-slate-300">{row.role || 'Consultora'}</td>
