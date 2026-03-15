@@ -24,9 +24,11 @@ import {
   Clock,
   Link,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Loader2
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase, ORGANIZATION_ID } from '../lib/supabase';
 
 import { AffiliateNode, initialNetworkData, TreeNode } from './NetworkTree';
 interface DashboardProps {
@@ -44,42 +46,127 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
     setTimeout(() => setToast({ message: '', visible: false }), 3000);
   };
 
-  const stats = [
-    { label: 'Saldo Disponível', value: 'R$ 4.250,00', icon: <Wallet className="w-5 h-5" />, trend: '+12%', color: 'bg-green-500' },
-    { label: 'Pontos de Equipe (Mês)', value: '12.400 pts', icon: <Target className="w-5 h-5" />, trend: '+5%', color: 'bg-accent' },
-    { label: 'Consultoras Ativas', value: '28', icon: <Users className="w-5 h-5" />, trend: '+2', color: 'bg-blue-500' },
-    { label: 'Nível Atual', value: 'Líder Esmeralda', icon: <Award className="w-5 h-5" />, trend: 'Próximo: Diamante', color: 'bg-purple-500' },
-  ];
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
+  const [myOrders, setMyOrders] = useState<any[]>([]);
+  const [myNetwork, setMyNetwork] = useState<any[]>([]);
+  const [stats, setStats] = useState([
+    { label: 'Saldo Disponível', value: 'R$ 0,00', icon: <Wallet className="w-5 h-5" />, trend: 'Saldo', color: 'bg-green-500' },
+    { label: 'Pontos de Equipe (Mês)', value: '0 pts', icon: <Target className="w-5 h-5" />, trend: 'Mensal', color: 'bg-accent' },
+    { label: 'Consultoras Diretas', value: '0', icon: <Users className="w-5 h-5" />, trend: 'Rede', color: 'bg-blue-500' },
+    { label: 'Nível Atual', value: 'Consultora', icon: <Award className="w-5 h-5" />, trend: 'Nível', color: 'bg-purple-500' },
+  ]);
 
-  const recentAcitivity = [
-    { type: 'commission', text: 'Comissão de venda (Ana Paula)', amount: '+ R$ 45,90', date: 'Hoje, 14:20' },
-    { type: 'new_member', text: 'Nova consultora na rede: Júlia Costa', date: 'Hoje, 10:15' },
-    { type: 'goal', text: 'Meta de volume atingida! Bônus liberado', date: 'Ontem, 18:45' },
-  ];
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        onLogout();
+        return;
+      }
+
+      // Fetch Profile
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      if (profileData) {
+        setProfile(profileData);
+        
+        // Fetch My Network (Direct referrals)
+        const { data: networkData } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('referrer_id', user.id);
+        
+        const network = networkData || [];
+        setMyNetwork(network);
+
+        // Fetch My Commissions (Orders where I am the referrer)
+        const { data: ordersData } = await supabase
+          .from('orders')
+          .select(`
+            *,
+            user_profiles!orders_user_id_fkey (full_name)
+          `)
+          .eq('referrer_id', user.id)
+          .order('created_at', { ascending: false });
+        
+        const orders = ordersData || [];
+        setMyOrders(orders);
+
+        // Update Stats
+        const balance = profileData.balance || 0;
+        const totalPoints = 0; // Placeholder for now or calculate from orders if needed
+        
+        setStats([
+          { label: 'Saldo Disponível', value: `R$ ${balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Wallet className="w-5 h-5" />, trend: 'Disponível', color: 'bg-green-500' },
+          { label: 'Pontos de Equipe (Mês)', value: `${totalPoints} pts`, icon: <Target className="w-5 h-5" />, trend: 'Mensal', color: 'bg-accent' },
+          { label: 'Consultoras Diretas', value: network.length.toString(), icon: <Users className="w-5 h-5" />, trend: 'Rede', color: 'bg-blue-500' },
+          { label: 'Nível Atual', value: profileData.role || 'Consultora', icon: <Award className="w-5 h-5" />, trend: 'Nível', color: 'bg-purple-500' },
+        ]);
+      }
+      
+      setLoading(false);
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  const recentActivity = myOrders.slice(0, 5).map(order => ({
+    type: 'commission',
+    text: `Comissão de venda (${order.user_profiles?.full_name || 'Cliente'})`,
+    amount: `+ R$ ${(order.commission_amount || 0).toFixed(2)}`,
+    date: new Date(order.created_at).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  }));
 
   const chartData = [
-    { month: 'Out', value: 35 },
-    { month: 'Nov', value: 45 },
-    { month: 'Dez', value: 30 },
-    { month: 'Jan', value: 60 },
-    { month: 'Fev', value: 85 },
-    { month: 'Mar', value: 95 },
+    { month: 'Jan', value: 20 },
+    { month: 'Fev', value: 40 },
+    { month: 'Mar', value: 60 },
   ];
+
+  const treeData: AffiliateNode | null = profile ? {
+    id: profile.id,
+    name: profile.full_name,
+    level: profile.role || 'Consultora',
+    pts: '0', // Placeholder
+    image: profile.avatar_url,
+    children: myNetwork.map(member => ({
+      id: member.id,
+      name: member.full_name,
+      level: member.role || 'Consultora',
+      pts: '0',
+      image: member.avatar_url
+    }))
+  } : null;
+
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-[#1c1616] items-center justify-center">
+        <Loader2 className="w-12 h-12 text-accent animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-[#1c1616] text-white">
       {/* Sidebar */}
       <aside className="w-64 border-r border-accent/10 flex flex-col">
         <div className="p-8 border-b border-accent/10 flex flex-col items-center">
-          <div className="w-20 h-20 rounded-full border-2 border-accent p-1 mb-4 overflow-hidden">
-            <img 
-              src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&h=150&auto=format&fit=crop" 
-              alt="Consultora" 
-              className="w-full h-full object-cover rounded-full"
-            />
+          <div className="w-20 h-20 rounded-full border-2 border-accent p-1 mb-4 overflow-hidden bg-white/10 flex items-center justify-center">
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="Consultora" className="w-full h-full object-cover rounded-full" />
+            ) : (
+              <Users className="w-10 h-10 text-accent" />
+            )}
           </div>
-          <h2 className="font-serif italic text-xl">Maria Silva</h2>
-          <span className="text-[10px] uppercase tracking-widest text-accent font-bold">Líder Esmeralda</span>
+          <h2 className="font-serif italic text-xl text-center">{profile?.full_name || 'Carregando...'}</h2>
+          <span className="text-[10px] uppercase tracking-widest text-accent font-bold">{profile?.role || 'Aguarde'}</span>
         </div>
 
         <nav className="flex-1 py-6 px-4 space-y-2">
@@ -136,7 +223,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         <header className="p-8 flex justify-between items-center border-b border-accent/10 sticky top-0 bg-[#130d0d]/80 backdrop-blur-md z-10">
           <div>
             <h1 className="text-3xl font-serif">Escritório Virtual</h1>
-            <p className="text-slate-500 text-sm">Bem-vinda, Maria silva</p>
+            <p className="text-slate-500 text-sm">Bem-vinda, {profile?.full_name?.split(' ')[0] || 'Consultora'}</p>
           </div>
           <div className="flex items-center gap-6">
             <div className="relative hidden md:block">
@@ -186,11 +273,12 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                   <div className="flex-1 lg:w-72 bg-[#1a1414] border border-accent/10 rounded-2xl p-4 flex justify-between items-center group hover:border-accent/40 transition-all">
                     <div>
                       <p className="text-[10px] text-slate-500 uppercase font-black mb-1">Página de Cadastro</p>
-                      <p className="text-xs text-accent truncate">belasousa.com.br/cadastro?ref=maria</p>
+                      <p className="text-xs text-accent truncate">belasousa.com.br/cadastro?ref={profile?.login || 'id'}</p>
                     </div>
                     <button 
                       onClick={() => {
-                        navigator.clipboard.writeText("https://belasousa.com.br/cadastro?ref=maria");
+                        const link = `https://belasousa.com.br/cadastro?ref=${profile?.login || profile?.id}`;
+                        navigator.clipboard.writeText(link);
                         showToast("Link de Cadastro copiado com sucesso!");
                       }}
                       className="p-2 hover:bg-accent/10 rounded-lg text-accent transition-colors"
@@ -256,7 +344,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                 <div className="bg-white/5 border border-accent/10 p-8 rounded-[40px]">
                   <h3 className="font-serif text-2xl mb-8">Atividade Recente</h3>
                   <div className="space-y-6">
-                    {recentAcitivity.map((activity, i) => (
+                    {recentActivity.length > 0 ? recentActivity.map((activity, i) => (
                       <div key={i} className="flex gap-4 group">
                         <div className="w-2 h-2 rounded-full bg-accent mt-2 group-last:bg-accent/20" />
                         <div>
@@ -269,7 +357,9 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                           </div>
                         </div>
                       </div>
-                    ))}
+                    )) : (
+                      <p className="text-slate-500 text-sm italic">Nenhuma atividade recente.</p>
+                    )}
                   </div>
                   <button className="w-full mt-10 py-4 border border-accent/20 rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-accent/5 transition-all">
                     Ver todo o histórico
@@ -312,7 +402,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                 {networkView === 'tree' ? (
                   <div className="bg-[#1a1414] rounded-3xl p-12 overflow-x-auto min-h-[500px] flex justify-center items-start">
                     <div className="inline-block">
-                      <TreeNode node={initialNetworkData} />
+                      {treeData && <TreeNode node={treeData} />}
                     </div>
                   </div>
                 ) : (
@@ -327,28 +417,26 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-accent/5">
-                        {[
-                          { name: 'Alice Santos', level: 'Pérola', pts: '2.450', status: 'Ativa' },
-                          { name: 'Beatriz Lima', level: 'Ouro', pts: '4.800', status: 'Ativa' },
-                          { name: 'Carla Dias', level: 'Consultora', pts: '850', status: 'Ativa' },
-                          { name: 'Débora Moura', level: 'Ouro', pts: '5.100', status: 'Ativa' },
-                        ].map((row, i) => (
+                        {myNetwork.map((row, i) => (
                           <tr key={i} className="group hover:bg-white/5 transition-all">
                             <td className="py-4">
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-bold">
-                                  {row.name.substring(0,2).toUpperCase()}
+                                  {row.full_name?.substring(0,2).toUpperCase()}
                                 </div>
-                                <span className="font-medium text-sm">{row.name}</span>
+                                <span className="font-medium text-sm">{row.full_name}</span>
                               </div>
                             </td>
-                            <td className="py-4 text-sm font-light text-slate-300">{row.level}</td>
-                            <td className="py-4 text-sm font-bold text-accent">{row.pts}</td>
+                            <td className="py-4 text-sm font-light text-slate-300">{row.role || 'Consultora'}</td>
+                            <td className="py-4 text-sm font-bold text-accent">0</td>
                             <td className="py-4">
                               <button className="text-[10px] uppercase font-bold text-slate-500 hover:text-accent transition-colors">Ver Perfil</button>
                             </td>
                           </tr>
                         ))}
+                        {myNetwork.length === 0 && (
+                          <tr><td colSpan={4} className="py-8 text-center text-slate-500 text-sm">Você ainda não possui consultoras em sua rede.</td></tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -370,7 +458,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                     <Wallet className="w-16 h-16 text-primary" />
                   </div>
                   <h3 className="text-primary/70 text-xs font-bold uppercase tracking-widest mb-2">Saldo Disponível</h3>
-                  <p className="text-4xl font-serif text-primary mb-6">R$ 4.250,10</p>
+                  <p className="text-4xl font-serif text-primary mb-6">R$ {profile?.balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</p>
                   <button className="bg-primary text-white px-6 py-3 rounded-2xl text-[10px] uppercase font-bold tracking-widest hover:bg-primary/90 transition-all flex items-center gap-2">
                     <ArrowDownToLine className="w-4 h-4" />
                     Solicitar Saque
@@ -430,28 +518,25 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-accent/5">
-                      {[
-                        { date: '12/03/2024', desc: 'Comissão Venda #9284 (Regiane)', type: 'Venda Direta', amount: '+ R$ 84,50', status: 'Confirmado', icon: <CheckCircle2 className="w-3 h-3" /> },
-                        { date: '10/03/2024', desc: 'Bônus de Início Rápido (Júlia)', type: 'Bônus Rede', amount: '+ R$ 150,00', status: 'Confirmado', icon: <CheckCircle2 className="w-3 h-3" /> },
-                        { date: '08/03/2024', desc: 'Solicitação de Saque Bancário', type: 'Saque', amount: '- R$ 1.200,00', status: 'Processando', icon: <Clock className="w-3 h-3" /> },
-                        { date: '05/03/2024', desc: 'Comissão Indireta Nível 2', type: 'Rede', amount: '+ R$ 12,40', status: 'Confirmado', icon: <CheckCircle2 className="w-3 h-3" /> },
-                        { date: '01/03/2024', desc: 'Bônus Meta Líder Esmeralda', type: 'Prêmio', amount: '+ R$ 500,00', status: 'Confirmado', icon: <CheckCircle2 className="w-3 h-3" /> },
-                      ].map((tx, i) => (
+                      {myOrders.map((tx, i) => (
                         <tr key={i} className="group hover:bg-white/5 transition-all">
-                          <td className="py-6 text-sm text-slate-400">{tx.date}</td>
-                          <td className="py-6 text-sm font-medium">{tx.desc}</td>
+                          <td className="py-6 text-sm text-slate-400">{new Date(tx.created_at).toLocaleDateString('pt-BR')}</td>
+                          <td className="py-6 text-sm font-medium">Comissão Venda #{tx.id.substring(0,6)} ({tx.user_profiles?.full_name || 'Cliente'})</td>
                           <td className="py-6">
-                            <span className="text-[10px] uppercase font-bold bg-white/5 border border-accent/10 px-2 py-1 rounded-md text-slate-400">{tx.type}</span>
+                            <span className="text-[10px] uppercase font-bold bg-white/5 border border-accent/10 px-2 py-1 rounded-md text-slate-400">Venda</span>
                           </td>
-                          <td className={`py-6 text-sm font-bold ${tx.amount.startsWith('+') ? 'text-green-400' : 'text-slate-200'}`}>{tx.amount}</td>
+                          <td className="py-6 text-sm font-bold text-green-400">+ R$ {(tx.commission_amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                           <td className="py-6 text-right">
-                             <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest ${tx.status === 'Confirmado' ? 'bg-green-400/10 text-green-400' : 'bg-accent/10 text-accent'}`}>
-                               {tx.icon}
-                               {tx.status}
+                             <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest ${tx.status === 'completed' ? 'bg-green-400/10 text-green-400' : 'bg-accent/10 text-accent'}`}>
+                               {tx.status === 'completed' ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                               {tx.status === 'completed' ? 'Confirmado' : 'Pendente'}
                              </div>
                           </td>
                         </tr>
                       ))}
+                      {myOrders.length === 0 && (
+                        <tr><td colSpan={5} className="py-12 text-center text-slate-500 text-sm">Nenhuma transação encontrada.</td></tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
