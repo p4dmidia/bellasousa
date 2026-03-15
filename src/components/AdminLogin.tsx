@@ -1,6 +1,7 @@
-import { motion } from 'motion/react';
-import { Mail, Lock, ArrowRight, ShieldCheck, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
+import { motion } from 'motion/react';
+import { Mail, Lock, ArrowRight, ShieldCheck, ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { supabase, ORGANIZATION_ID } from '../lib/supabase';
 
 interface AdminLoginProps {
     onBack: () => void;
@@ -8,11 +9,46 @@ interface AdminLoginProps {
 }
 
 export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
+    const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     
-    const handleSubmit = (e: any) => {
+    const handleSubmit = async (e: any) => {
         e.preventDefault();
-        onLoginSuccess();
+        setLoading(true);
+
+        try {
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
+
+            if (authError) throw authError;
+
+            if (authData.user) {
+                // Verify if user is admin for this organization
+                const { data: profile, error: profileError } = await supabase
+                    .from('user_profiles')
+                    .select('role')
+                    .eq('id', authData.user.id)
+                    .eq('organization_id', ORGANIZATION_ID)
+                    .single();
+
+                if (profileError || profile?.role !== 'admin') {
+                    await supabase.auth.signOut();
+                    alert("Acesso negado: Este usuário não é um administrador autorizado.");
+                    setLoading(false);
+                    return;
+                }
+
+                onLoginSuccess();
+            }
+        } catch (err: any) {
+            alert("Erro no login: " + err.message);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -54,6 +90,8 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
                                     required
                                     type="email"
                                     placeholder="admin@bellasousa.com.br"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
                                     className="w-full bg-[#130d0d] border border-accent/20 text-white placeholder-slate-600 rounded-xl p-4 pl-12 focus:outline-none focus:border-accent transition-all font-medium"
                                 />
                             </div>
@@ -67,6 +105,8 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
                                     required
                                     type={showPassword ? "text" : "password"}
                                     placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
                                     className="w-full bg-[#130d0d] border border-accent/20 text-white placeholder-slate-600 rounded-xl p-4 pl-12 pr-12 focus:outline-none focus:border-accent transition-all font-medium"
                                 />
                                  <button
@@ -81,10 +121,11 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
 
                         <button
                             type="submit"
-                            className="w-full bg-accent hover:bg-accent/90 text-primary py-5 rounded-2xl font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-3 transition-all shadow-lg shadow-accent/20 group mt-8"
+                            disabled={loading}
+                            className="w-full bg-accent hover:bg-accent/90 text-primary py-5 rounded-2xl font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-3 transition-all shadow-lg shadow-accent/20 group mt-8 disabled:opacity-50"
                         >
-                            Acessar Painel
-                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Acessar Painel"}
+                            {!loading && <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
                         </button>
                     </form>
                 </div>
