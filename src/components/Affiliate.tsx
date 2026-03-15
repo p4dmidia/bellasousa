@@ -214,34 +214,34 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Nome Completo</label>
-                                    <input required type="text" placeholder="Maria Silva" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" 
+                                    <input required type="text" placeholder="Maria Silva" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light text-black" 
                                         value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">WhatsApp</label>
-                                    <input required type="tel" placeholder="(00) 00000-0000" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" 
+                                    <input required type="tel" placeholder="(00) 00000-0000" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light text-black" 
                                         value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">E-mail</label>
-                                    <input required type="email" placeholder="maria@exemplo.com" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" 
+                                    <input required type="email" placeholder="maria@exemplo.com" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light text-black" 
                                         value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Cidade / UF</label>
-                                    <input required type="text" placeholder="São Paulo - SP" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" 
+                                    <input required type="text" placeholder="São Paulo - SP" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light text-black" 
                                         value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
                                 </div>
                             </div>
 
                             <div className="space-y-2">
                                 <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Senha de Acesso</label>
-                                <input required type="password" placeholder="••••••••" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" 
+                                <input required type="password" placeholder="••••••••" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light text-black" 
                                     value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Chave PIX (Para recebimento de comissões)</label>
-                                <input required type="text" placeholder="CPF, E-mail ou Telefone" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light" 
+                                <input required type="text" placeholder="CPF, E-mail ou Telefone" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light text-black" 
                                     value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} />
                             </div>
 
