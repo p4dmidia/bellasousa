@@ -79,30 +79,32 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         setProfile(profileData);
         
         // Fetch My Network (Direct referrals)
-        // If referrer_id doesn't exist, this might fail with 400. 
-        // We'll try to see if parent_id or sponsor_id is more common, but referrer_id was in AdminDashboard.
-        const { data: networkData } = await supabase
+        // Using JS Filter to avoid potential 400 errors if columns are not direct filters
+        const { data: allUsers } = await supabase
           .from('user_profiles')
           .select('*')
-          .eq('referrer_id', user.id)
           .eq('organization_id', ORGANIZATION_ID);
         
-        const network = networkData || [];
+        const network = (allUsers || []).filter(p => p.referrer_id === user.id);
+        console.log("Dashboard: My Network count:", network.length);
         setMyNetwork(network);
 
         // Fetch My Commissions (Orders where I am the referrer)
-        const { data: ordersData } = await supabase
+        const { data: allOrders } = await supabase
           .from('orders')
           .select(`
             *,
             customer:user_profiles!orders_user_id_fkey (full_name)
           `)
-          .eq('referrer_id', user.id)
           .eq('organization_id', ORGANIZATION_ID)
           .order('created_at', { ascending: false });
         
-        const orders = ordersData || [];
-        setMyOrders(orders);
+        const myCommOrders = (allOrders || []).filter(o => o.referrer_id === user.id);
+        console.log("Dashboard: My Orders count:", myCommOrders.length);
+        if (allOrders && allOrders.length > 0) {
+          console.log("Dashboard: Columns in Order:", Object.keys(allOrders[0]));
+        }
+        setMyOrders(myCommOrders);
 
         // Update Stats
         const balance = profileData.balance || 0;
