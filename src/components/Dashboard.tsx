@@ -78,32 +78,35 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
       if (profileData) {
         setProfile(profileData);
         
-        // Fetch My Network (Direct referrals)
-        // Using JS Filter to avoid potential 400 errors if columns are not direct filters
+        // Fetch All Users for this organization to build network and map names
+        // Note: RLS might restrict this for non-admins.
         const { data: allUsers } = await supabase
           .from('user_profiles')
-          .select('*')
+          .select('id, full_name, role, avatar_url, referrer_id')
           .eq('organization_id', ORGANIZATION_ID);
         
-        const network = (allUsers || []).filter(p => p.referrer_id === user.id);
+        const usersList = allUsers || [];
+        const network = usersList.filter(p => p.referrer_id === user.id);
         console.log("Dashboard: My Network count:", network.length);
         setMyNetwork(network);
 
-        // Fetch My Commissions (Orders where I am the referrer)
+        // Fetch Orders for this organization
+        // We remove the join to avoid 400 errors and RLS conflicts
         const { data: allOrders } = await supabase
           .from('orders')
-          .select(`
-            *,
-            customer:user_profiles!orders_user_id_fkey (full_name)
-          `)
+          .select('*')
           .eq('organization_id', ORGANIZATION_ID)
           .order('created_at', { ascending: false });
         
-        const myCommOrders = (allOrders || []).filter(o => o.referrer_id === user.id);
+        const ordersList = allOrders || [];
+        const myCommOrders = ordersList
+          .filter(o => o.referrer_id === user.id)
+          .map(order => ({
+            ...order,
+            customer_name: usersList.find(u => u.id === order.user_id)?.full_name || 'Cliente'
+          }));
+
         console.log("Dashboard: My Orders count:", myCommOrders.length);
-        if (allOrders && allOrders.length > 0) {
-          console.log("Dashboard: Columns in Order:", Object.keys(allOrders[0]));
-        }
         setMyOrders(myCommOrders);
 
         // Update Stats
@@ -126,7 +129,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
 
   const recentActivity = myOrders.slice(0, 5).map(order => ({
     type: 'commission',
-    text: `Comissão de venda (${order.customer?.full_name || 'Cliente'})`,
+    text: `Comissão de venda (${order.customer_name})`,
     amount: `+ R$ ${(order.commission_amount || 0).toFixed(2)}`,
     date: new Date(order.created_at).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   }));
@@ -528,7 +531,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                       {myOrders.map((tx, i) => (
                         <tr key={i} className="group hover:bg-white/5 transition-all">
                           <td className="py-6 text-sm text-slate-400">{new Date(tx.created_at).toLocaleDateString('pt-BR')}</td>
-                          <td className="py-6 text-sm font-medium">Comissão Venda #{tx.id.substring(0,6)} ({tx.customer?.full_name || 'Cliente'})</td>
+                          <td className="py-6 text-sm font-medium">Comissão Venda #{tx.id.substring(0,6)} ({tx.customer_name})</td>
                           <td className="py-6">
                             <span className="text-[10px] uppercase font-bold bg-white/5 border border-accent/10 px-2 py-1 rounded-md text-slate-400">Venda</span>
                           </td>
