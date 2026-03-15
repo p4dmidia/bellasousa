@@ -72,16 +72,20 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         .from('user_profiles')
         .select('*')
         .eq('id', user.id)
+        .eq('organization_id', ORGANIZATION_ID)
         .single();
       
       if (profileData) {
         setProfile(profileData);
         
         // Fetch My Network (Direct referrals)
+        // If referrer_id doesn't exist, this might fail with 400. 
+        // We'll try to see if parent_id or sponsor_id is more common, but referrer_id was in AdminDashboard.
         const { data: networkData } = await supabase
           .from('user_profiles')
           .select('*')
-          .eq('referrer_id', user.id);
+          .eq('referrer_id', user.id)
+          .eq('organization_id', ORGANIZATION_ID);
         
         const network = networkData || [];
         setMyNetwork(network);
@@ -91,9 +95,10 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
           .from('orders')
           .select(`
             *,
-            user_profiles!orders_user_id_fkey (full_name)
+            customer:user_profiles!orders_user_id_fkey (full_name)
           `)
           .eq('referrer_id', user.id)
+          .eq('organization_id', ORGANIZATION_ID)
           .order('created_at', { ascending: false });
         
         const orders = ordersData || [];
@@ -119,7 +124,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
 
   const recentActivity = myOrders.slice(0, 5).map(order => ({
     type: 'commission',
-    text: `Comissão de venda (${order.user_profiles?.full_name || 'Cliente'})`,
+    text: `Comissão de venda (${order.customer?.full_name || 'Cliente'})`,
     amount: `+ R$ ${(order.commission_amount || 0).toFixed(2)}`,
     date: new Date(order.created_at).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   }));
@@ -521,7 +526,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                       {myOrders.map((tx, i) => (
                         <tr key={i} className="group hover:bg-white/5 transition-all">
                           <td className="py-6 text-sm text-slate-400">{new Date(tx.created_at).toLocaleDateString('pt-BR')}</td>
-                          <td className="py-6 text-sm font-medium">Comissão Venda #{tx.id.substring(0,6)} ({tx.user_profiles?.full_name || 'Cliente'})</td>
+                          <td className="py-6 text-sm font-medium">Comissão Venda #{tx.id.substring(0,6)} ({tx.customer?.full_name || 'Cliente'})</td>
                           <td className="py-6">
                             <span className="text-[10px] uppercase font-bold bg-white/5 border border-accent/10 px-2 py-1 rounded-md text-slate-400">Venda</span>
                           </td>
