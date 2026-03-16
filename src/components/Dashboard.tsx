@@ -703,7 +703,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                        <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Nome Completo</label>
                        <input 
                          type="text" 
-                         value={profileForm.nome}
+                         value={profileForm.nome || profile?.full_name || profile?.nome || ''}
                          onChange={e => setProfileForm(prev => ({...prev, nome: e.target.value}))}
                          className="w-full bg-[#1a1414] border border-accent/20 rounded-xl p-4 text-white focus:outline-none focus:border-accent transition-all"
                          required
@@ -713,7 +713,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                        <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">E-mail (Login)</label>
                        <input 
                          type="email" 
-                         value={profileForm.email}
+                         value={profileForm.email || currentUser?.email || ''}
                          disabled
                          className="w-full bg-[#1a1414]/50 border border-white/5 rounded-xl p-4 text-slate-500 cursor-not-allowed"
                          title="E-mail principal não pode ser alterado por aqui"
@@ -723,7 +723,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                        <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">WhatsApp / Telefone</label>
                        <input 
                          type="tel" 
-                         value={profileForm.phone}
+                         value={profileForm.phone || profile?.phone || ''}
                          onChange={e => setProfileForm(prev => ({...prev, phone: e.target.value}))}
                          className="w-full bg-[#1a1414] border border-accent/20 rounded-xl p-4 text-white focus:outline-none focus:border-accent transition-all"
                        />
@@ -732,7 +732,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                        <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">CPF</label>
                        <input 
                          type="text" 
-                         value={profileForm.cpf}
+                         value={profileForm.cpf || profile?.cpf || ''}
                          onChange={e => setProfileForm(prev => ({...prev, cpf: e.target.value}))}
                          className="w-full bg-[#1a1414] border border-accent/20 rounded-xl p-4 text-white focus:outline-none focus:border-accent transition-all"
                        />
