@@ -25,9 +25,10 @@ import {
   Link,
   Copy,
   ExternalLink,
-  Loader2
+  Loader2,
+  UserCog
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase, ORGANIZATION_ID } from '../lib/supabase';
 
 import { AffiliateNode, initialNetworkData, TreeNode } from './NetworkTree';
@@ -37,9 +38,19 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'network' | 'financial' | 'training'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'network' | 'financial' | 'training' | 'profile'>('overview');
   const [networkView, setNetworkView] = useState<'tree' | 'list'>('tree');
   const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: '', visible: false });
+
+  const [profileForm, setProfileForm] = useState({
+    nome: '',
+    email: '',
+    phone: '',
+    cpf: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
   const showToast = (message: string) => {
     setToast({ message, visible: true });
@@ -80,6 +91,13 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
       
       if (profileData) {
         setProfile(profileData);
+        setProfileForm(prev => ({
+           ...prev,
+           nome: profileData.full_name || profileData.nome || '',
+           email: user.email || '',
+           phone: profileData.phone || '',
+           cpf: profileData.cpf || ''
+        }));
         
         // Fetch All Users for this organization to build network and map names
         const { data: allUsers, error: usersError } = await supabase
@@ -151,6 +169,56 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
     fetchDashboardData();
   }, []);
 
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (profileForm.newPassword && profileForm.newPassword !== profileForm.confirmPassword) {
+      showToast("As senhas não coincidem.");
+      return;
+    }
+
+    setIsUpdatingProfile(true);
+    try {
+       // Update Password if provided
+       if (profileForm.newPassword) {
+          const { error: authError } = await supabase.auth.updateUser({
+             password: profileForm.newPassword
+          });
+          if (authError) throw authError;
+       }
+
+       // Update profile table
+       const { error: profileError } = await supabase
+         .from('user_profiles')
+         .update({
+             full_name: profileForm.nome,
+             nome: profileForm.nome,
+             phone: profileForm.phone,
+             cpf: profileForm.cpf
+         })
+         .eq('id', profile.id);
+
+       if (profileError) throw profileError;
+
+       showToast("Perfil atualizado com sucesso!");
+       setProfileForm(prev => ({ ...prev, newPassword: '', confirmPassword: '' }));
+       
+       // Update local profile state to reflect changes immediately
+       setProfile((prev: any) => ({
+           ...prev,
+           full_name: profileForm.nome,
+           nome: profileForm.nome,
+           phone: profileForm.phone,
+           cpf: profileForm.cpf
+       }));
+
+    } catch (error: any) {
+        console.error("Erro ao atualizar perfil:", error);
+        showToast("Erro ao atualizar: " + error.message);
+    } finally {
+        setIsUpdatingProfile(false);
+    }
+  };
+
   const recentActivity = myOrders.slice(0, 5).map(order => ({
     type: 'commission',
     text: `Comissão de venda (${order.customer_name})`,
@@ -166,14 +234,14 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
 
   const treeData: AffiliateNode | null = profile ? {
     id: profile.id,
-    name: profile.full_name,
-    level: profile.role || 'Consultora',
+    name: profile.full_name || profile.nome || 'Afiliado',
+    level: profile.role === 'affiliate' ? 'Afiliado' : (profile.role || 'Consultora'),
     pts: '0', // Placeholder
     image: profile.avatar_url,
     children: myNetwork.map(member => ({
       id: member.id,
-      name: member.full_name,
-      level: member.role || 'Consultora',
+      name: member.full_name || member.nome || 'Afiliado',
+      level: member.role === 'affiliate' ? 'Afiliado' : (member.role || 'Consultora'),
       pts: '0',
       image: member.avatar_url
     }))
@@ -202,7 +270,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
           <h2 className="font-serif italic text-xl text-center">
               {profile?.full_name || currentUser?.user_metadata?.nome || currentUser?.user_metadata?.full_name?.split(' ')[0] || 'Consultora'}
           </h2>
-          <span className="text-[10px] uppercase tracking-widest text-accent font-bold">{profile?.role || 'Prata'}</span>
+          <span className="text-[10px] uppercase tracking-widest text-accent font-bold">{profile?.role === 'affiliate' ? 'Afiliado' : (profile?.role || 'Prata')}</span>
         </div>
 
         <nav className="flex-1 py-6 px-4 space-y-2">
@@ -233,6 +301,13 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
           >
             <GraduationCap className="w-5 h-5" />
             <span className="text-sm">Treinamentos</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('profile')}
+            className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${activeTab === 'profile' ? 'bg-accent text-primary font-bold' : 'hover:bg-accent/10 text-slate-400'}`}
+          >
+            <UserCog className="w-5 h-5" />
+            <span className="text-sm">Meu Perfil</span>
           </button>
         </nav>
 
@@ -605,6 +680,111 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                 </div>
               ))}
             </div>
+          )}
+
+          {activeTab === 'profile' && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="max-w-3xl mx-auto space-y-8"
+            >
+              <div className="bg-white/5 border border-accent/10 p-8 md:p-12 rounded-[40px]">
+                <div className="flex items-center gap-4 mb-8">
+                  <UserCog className="w-8 h-8 text-accent" />
+                  <div>
+                    <h3 className="font-serif text-3xl italic">Configurações do Perfil</h3>
+                    <p className="text-slate-500 text-xs mt-1 uppercase tracking-widest">Atualize seus dados e credenciais</p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleUpdateProfile} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                       <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Nome Completo</label>
+                       <input 
+                         type="text" 
+                         value={profileForm.nome}
+                         onChange={e => setProfileForm(prev => ({...prev, nome: e.target.value}))}
+                         className="w-full bg-[#1a1414] border border-accent/20 rounded-xl p-4 text-white focus:outline-none focus:border-accent transition-all"
+                         required
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">E-mail (Login)</label>
+                       <input 
+                         type="email" 
+                         value={profileForm.email}
+                         disabled
+                         className="w-full bg-[#1a1414]/50 border border-white/5 rounded-xl p-4 text-slate-500 cursor-not-allowed"
+                         title="E-mail principal não pode ser alterado por aqui"
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">WhatsApp / Telefone</label>
+                       <input 
+                         type="tel" 
+                         value={profileForm.phone}
+                         onChange={e => setProfileForm(prev => ({...prev, phone: e.target.value}))}
+                         className="w-full bg-[#1a1414] border border-accent/20 rounded-xl p-4 text-white focus:outline-none focus:border-accent transition-all"
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">CPF</label>
+                       <input 
+                         type="text" 
+                         value={profileForm.cpf}
+                         onChange={e => setProfileForm(prev => ({...prev, cpf: e.target.value}))}
+                         className="w-full bg-[#1a1414] border border-accent/20 rounded-xl p-4 text-white focus:outline-none focus:border-accent transition-all"
+                       />
+                    </div>
+                  </div>
+
+                  <hr className="border-accent/10 my-8" />
+                  
+                  <div>
+                    <h4 className="font-serif text-xl italic mb-6">Alterar Senha</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                         <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Nova Senha</label>
+                         <input 
+                           type="password" 
+                           placeholder="Deixe em branco para não alterar"
+                           value={profileForm.newPassword}
+                           onChange={e => setProfileForm(prev => ({...prev, newPassword: e.target.value}))}
+                           className="w-full bg-[#1a1414] border border-accent/20 rounded-xl p-4 text-white focus:outline-none focus:border-accent transition-all"
+                         />
+                      </div>
+                      <div className="space-y-2">
+                         <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Confirmar Nova Senha</label>
+                         <input 
+                           type="password" 
+                           placeholder="Repita a nova senha"
+                           value={profileForm.confirmPassword}
+                           onChange={e => setProfileForm(prev => ({...prev, confirmPassword: e.target.value}))}
+                           className="w-full bg-[#1a1414] border border-accent/20 rounded-xl p-4 text-white focus:outline-none focus:border-accent transition-all"
+                         />
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-3">A sua sessão será mantida, mas a nova senha será exigida no próximo login.</p>
+                  </div>
+
+                  <div className="pt-6">
+                     <button
+                        type="submit"
+                        disabled={isUpdatingProfile}
+                        className="w-full md:w-auto px-10 py-4 bg-accent text-primary rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                     >
+                        {isUpdatingProfile ? (
+                           <>
+                             <Loader2 className="w-4 h-4 animate-spin" />
+                             Salvando...
+                           </>
+                        ) : 'Salvar Alterações'}
+                     </button>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
           )}
         </div>
       </main>

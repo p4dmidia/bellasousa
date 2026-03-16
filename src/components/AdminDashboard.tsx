@@ -18,6 +18,7 @@ import {
   Upload
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import toast, { Toaster } from 'react-hot-toast';
 import { initialNetworkData, TreeNode } from './NetworkTree';
 import { supabase, ORGANIZATION_ID } from '../lib/supabase';
 
@@ -143,7 +144,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
 
   const handleCreateProduct = async () => {
     if (!newProduct.name || !newProduct.price) {
-      alert("Por favor, preencha nome e preço.");
+      toast.error("Por favor, preencha nome e preço.");
       return;
     }
 
@@ -164,8 +165,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
 
         if (uploadError) {
             console.error("Erro no upload da imagem:", uploadError);
-            alert("Erro ao enviar a imagem. Verifique as configurações de permissão do bucket.");
-            // Mesmo com erro de upload, tenta salvar com a URL atual (vazia ou mock) para não travar
+            toast.error("Erro ao enviar a imagem. Verifique as permissões do bucket.");
         }
 
         if (data) {
@@ -191,7 +191,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
 
       if (error) throw error;
       
-      alert("Produto criado com sucesso!");
+      toast.success("Produto criado com sucesso!");
       setShowNewProductModal(false);
       setNewProduct({ name: '', price: '', stock: '', description: '', image_url: '', category: 'Lingerie' });
       setSelectedImageFile(null);
@@ -199,7 +199,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
       const { data: updatedData } = await supabase.from('products').select('*').eq('organization_id', ORGANIZATION_ID).order('created_at', { ascending: false });
       setProducts(updatedData || []);
     } catch (err: any) {
-      alert("Erro ao criar produto: " + err.message);
+      toast.error("Erro ao criar produto: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -207,6 +207,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
 
   return (
     <div className="flex h-screen bg-[#130d0d] text-white overflow-hidden">
+      <Toaster position="top-right" toastOptions={{ style: { background: '#333', color: '#fff' } }} />
       {/* Sidebar Admin */}
       <aside className="w-64 bg-[#1a1414] border-r border-accent/10 flex flex-col hidden md:flex">
         <div className="p-8 border-b border-accent/10">
