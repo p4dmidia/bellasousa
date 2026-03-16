@@ -93,10 +93,10 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         setProfile(profileData);
         setProfileForm(prev => ({
            ...prev,
-           nome: profileData.full_name || user?.user_metadata?.full_name || profileData.nome || user?.user_metadata?.nome || '',
+           nome: user?.user_metadata?.full_name || user?.user_metadata?.nome || profileData.nome || profileData.full_name || '',
            email: user.email || '',
-           phone: profileData.phone || user?.user_metadata?.whatsapp || user?.user_metadata?.phone || '',
-           cpf: profileData.cpf || user?.user_metadata?.cpf || ''
+           phone: user?.user_metadata?.phone || user?.user_metadata?.whatsapp || profileData.phone || '',
+           cpf: user?.user_metadata?.cpf || profileData.cpf || ''
         }));
         
         // Fetch All Users for this organization to build network and map names
@@ -178,36 +178,51 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
 
     setIsUpdatingProfile(true);
     try {
-       // Update Password if provided
-       if (profileForm.newPassword) {
-          const { error: authError } = await supabase.auth.updateUser({
-             password: profileForm.newPassword
-          });
-          if (authError) throw authError;
-       }
-
-       // Update profile table
-       const { error: profileError } = await supabase
-         .from('user_profiles')
-         .update({
+       // Update Password AND Metadata
+       const updatePayload: any = {
+          data: {
              nome: profileForm.nome,
+             full_name: profileForm.nome,
              phone: profileForm.phone,
              cpf: profileForm.cpf
-         })
-         .eq('id', profile.id);
+          }
+       };
 
-       if (profileError) throw profileError;
+       if (profileForm.newPassword) {
+          updatePayload.password = profileForm.newPassword;
+       }
+
+       const { error: authError } = await supabase.auth.updateUser(updatePayload);
+       if (authError) throw authError;
+
+       // Update profile table for fields that might exist (optional fallback)
+       // We'll wrap this in a simple check or try-catch since we know 'nome'/'full_name' might fail
+       try {
+           await supabase
+             .from('user_profiles')
+             .update({
+                 nome: profileForm.nome,
+                 phone: profileForm.phone,
+                 cpf: profileForm.cpf
+             })
+             .eq('id', profile.id);
+       } catch (tableErr) {
+           console.warn("Table update skipped or failed, but auth metadata was updated:", tableErr);
+       }
 
        showToast("Perfil atualizado com sucesso!");
        setProfileForm(prev => ({ ...prev, newPassword: '', confirmPassword: '' }));
        
-       // Update local profile state to reflect changes immediately
+       // Update local profile state and current user state
        setProfile((prev: any) => ({
            ...prev,
            nome: profileForm.nome,
            phone: profileForm.phone,
            cpf: profileForm.cpf
        }));
+
+       const { data: { user: updatedUser } } = await supabase.auth.getUser();
+       setCurrentUser(updatedUser);
 
     } catch (error: any) {
         console.error("Erro ao atualizar perfil:", error);
@@ -702,7 +717,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                        <input 
                          type="text" 
                          autoComplete="name"
-                         value={profileForm.nome || profile?.full_name || currentUser?.user_metadata?.full_name || profile?.nome || currentUser?.user_metadata?.nome || ''}
+                         value={profileForm.nome || profile?.nome || profile?.full_name || currentUser?.user_metadata?.nome || currentUser?.user_metadata?.full_name || ''}
                          onChange={e => setProfileForm(prev => ({...prev, nome: e.target.value}))}
                          className="w-full bg-[#1a1414] border border-accent/20 rounded-xl p-4 text-white focus:outline-none focus:border-accent transition-all"
                          required
@@ -724,7 +739,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                        <input 
                          type="tel" 
                          autoComplete="tel"
-                         value={profileForm.phone || profile?.phone || currentUser?.user_metadata?.whatsapp || currentUser?.user_metadata?.phone || ''}
+                         value={profileForm.phone || profile?.phone || currentUser?.user_metadata?.phone || currentUser?.user_metadata?.whatsapp || ''}
                          onChange={e => setProfileForm(prev => ({...prev, phone: e.target.value}))}
                          className="w-full bg-[#1a1414] border border-accent/20 rounded-xl p-4 text-white focus:outline-none focus:border-accent transition-all"
                        />
