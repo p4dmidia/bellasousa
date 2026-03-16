@@ -159,7 +159,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
           { label: 'Saldo Disponível', value: `R$ ${balanceValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Wallet className="w-5 h-5" />, trend: 'Disponível', color: 'bg-green-500' },
           { label: 'Pontos de Equipe (Mês)', value: `${totalPoints} pts`, icon: <Target className="w-5 h-5" />, trend: 'Mensal', color: 'bg-accent' },
           { label: 'Consultoras Diretas', value: network.length.toString(), icon: <Users className="w-5 h-5" />, trend: 'Rede', color: 'bg-blue-500' },
-          { label: 'Nível Atual', value: profileData.role || 'Consultora', icon: <Award className="w-5 h-5" />, trend: 'Nível', color: 'bg-purple-500' },
+          { label: 'Nível Atual', value: profileData.role === 'affiliate' ? 'Afiliado' : (profileData.role || 'Consultora'), icon: <Award className="w-5 h-5" />, trend: 'Nível', color: 'bg-purple-500' },
         ]);
       }
       
