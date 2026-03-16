@@ -93,10 +93,10 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         setProfile(profileData);
         setProfileForm(prev => ({
            ...prev,
-           nome: profileData.full_name || profileData.nome || '',
+           nome: profileData.full_name || user?.user_metadata?.full_name || profileData.nome || user?.user_metadata?.nome || '',
            email: user.email || '',
-           phone: profileData.phone || '',
-           cpf: profileData.cpf || ''
+           phone: profileData.phone || user?.user_metadata?.whatsapp || user?.user_metadata?.phone || '',
+           cpf: profileData.cpf || user?.user_metadata?.cpf || ''
         }));
         
         // Fetch All Users for this organization to build network and map names
@@ -697,13 +697,14 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                   </div>
                 </div>
 
-                <form onSubmit={handleUpdateProfile} className="space-y-6">
+                <form onSubmit={handleUpdateProfile} className="space-y-6" autoComplete="off">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                        <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Nome Completo</label>
                        <input 
                          type="text" 
-                         value={profileForm.nome || profile?.full_name || profile?.nome || ''}
+                         autoComplete="name"
+                         value={profileForm.nome || profile?.full_name || currentUser?.user_metadata?.full_name || profile?.nome || currentUser?.user_metadata?.nome || ''}
                          onChange={e => setProfileForm(prev => ({...prev, nome: e.target.value}))}
                          className="w-full bg-[#1a1414] border border-accent/20 rounded-xl p-4 text-white focus:outline-none focus:border-accent transition-all"
                          required
@@ -713,6 +714,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                        <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">E-mail (Login)</label>
                        <input 
                          type="email" 
+                         autoComplete="username"
                          value={profileForm.email || currentUser?.email || ''}
                          disabled
                          className="w-full bg-[#1a1414]/50 border border-white/5 rounded-xl p-4 text-slate-500 cursor-not-allowed"
@@ -723,7 +725,8 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                        <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">WhatsApp / Telefone</label>
                        <input 
                          type="tel" 
-                         value={profileForm.phone || profile?.phone || ''}
+                         autoComplete="tel"
+                         value={profileForm.phone || profile?.phone || currentUser?.user_metadata?.whatsapp || currentUser?.user_metadata?.phone || ''}
                          onChange={e => setProfileForm(prev => ({...prev, phone: e.target.value}))}
                          className="w-full bg-[#1a1414] border border-accent/20 rounded-xl p-4 text-white focus:outline-none focus:border-accent transition-all"
                        />
@@ -732,7 +735,8 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                        <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">CPF</label>
                        <input 
                          type="text" 
-                         value={profileForm.cpf || profile?.cpf || ''}
+                         autoComplete="new-password"
+                         value={profileForm.cpf || profile?.cpf || currentUser?.user_metadata?.cpf || ''}
                          onChange={e => setProfileForm(prev => ({...prev, cpf: e.target.value}))}
                          className="w-full bg-[#1a1414] border border-accent/20 rounded-xl p-4 text-white focus:outline-none focus:border-accent transition-all"
                        />
@@ -748,6 +752,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                          <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Nova Senha</label>
                          <input 
                            type="password" 
+                           autoComplete="new-password"
                            placeholder="Deixe em branco para não alterar"
                            value={profileForm.newPassword}
                            onChange={e => setProfileForm(prev => ({...prev, newPassword: e.target.value}))}
