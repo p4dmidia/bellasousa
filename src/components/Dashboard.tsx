@@ -159,7 +159,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
           { label: 'Saldo Disponível', value: `R$ ${balanceValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Wallet className="w-5 h-5" />, trend: 'Disponível', color: 'bg-green-500' },
           { label: 'Pontos de Equipe (Mês)', value: `${totalPoints} pts`, icon: <Target className="w-5 h-5" />, trend: 'Mensal', color: 'bg-accent' },
           { label: 'Consultoras Diretas', value: network.length.toString(), icon: <Users className="w-5 h-5" />, trend: 'Rede', color: 'bg-blue-500' },
-          { label: 'Nível Atual', value: profileData.role === 'affiliate' ? 'Afiliado' : (profileData.role || 'Consultora'), icon: <Award className="w-5 h-5" />, trend: 'Nível', color: 'bg-purple-500' },
+          { label: 'Nível Atual', value: profileData.role === 'affiliate' ? 'Consultor' : (profileData.role || 'Consultora'), icon: <Award className="w-5 h-5" />, trend: 'Nível', color: 'bg-purple-500' },
         ]);
       }
       
@@ -247,14 +247,14 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
 
   const treeData: AffiliateNode | null = profile ? {
     id: profile.id,
-    name: profile.full_name || profile.nome || 'Afiliado',
-    level: profile.role === 'affiliate' ? 'Afiliado' : (profile.role || 'Consultora'),
+    name: profile.full_name || profile.nome || 'Consultor',
+    level: profile.role === 'affiliate' ? 'Consultor' : (profile.role || 'Consultora'),
     pts: '0', // Placeholder
     image: profile.avatar_url,
     children: myNetwork.map(member => ({
       id: member.id,
-      name: member.full_name || member.nome || 'Afiliado',
-      level: member.role === 'affiliate' ? 'Afiliado' : (member.role || 'Consultora'),
+      name: member.full_name || member.nome || 'Consultor',
+      level: member.role === 'affiliate' ? 'Consultor' : (member.role || 'Consultora'),
       pts: '0',
       image: member.avatar_url
     }))
@@ -283,7 +283,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
           <h2 className="font-serif italic text-xl text-center">
               {profile?.full_name || currentUser?.user_metadata?.nome || currentUser?.user_metadata?.full_name?.split(' ')[0] || 'Consultora'}
           </h2>
-          <span className="text-[10px] uppercase tracking-widest text-accent font-bold">{profile?.role === 'affiliate' ? 'Afiliado' : (profile?.role || 'Prata')}</span>
+          <span className="text-[10px] uppercase tracking-widest text-accent font-bold">{profile?.role === 'affiliate' ? 'Consultor' : (profile?.role || 'Prata')}</span>
         </div>
 
         <nav className="flex-1 py-6 px-4 space-y-2">

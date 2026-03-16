@@ -78,17 +78,9 @@ export function TreeNode({ node, isLast = false }: { node: AffiliateNode; isLast
            className="relative cursor-pointer group"
         >
           <div className={`w-16 h-16 rounded-full border-4 ${isNoUser ? 'border-slate-700 bg-slate-800' : 'border-accent bg-primary'} p-0.5 shadow-xl transition-all`}>
-            {isNoUser ? (
-              <div className="w-full h-full rounded-full flex items-center justify-center bg-white/5">
-                <Users className="w-6 h-6 text-slate-600" />
-              </div>
-            ) : (
-              <img 
-                src={node.image || "https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=150&h=150&auto=format&fit=crop"} 
-                alt={node.name} 
-                className="w-full h-full object-cover rounded-full"
-              />
-            )}
+            <div className="w-full h-full rounded-full flex items-center justify-center bg-white/5">
+              <Users className={`w-6 h-6 ${isNoUser ? 'text-slate-600' : 'text-accent'}`} />
+            </div>
           </div>
           
           <AnimatePresence>
@@ -103,7 +95,7 @@ export function TreeNode({ node, isLast = false }: { node: AffiliateNode; isLast
                 <p className="font-serif text-accent text-lg leading-tight mb-1">{node.name}</p>
                 <p className="text-[10px] uppercase font-bold text-slate-400 mb-2">{node.level}</p>
                 <div className="space-y-1 text-[10px] text-slate-500 border-t border-white/5 pt-2">
-                  <p>ID: <span className="text-white">{node.id}</span></p>
+                  <p>Número: <span className="text-white">1</span></p>
                   <p>Volume: <span className="text-accent">{node.pts} pts</span></p>
                 </div>
               </motion.div>
