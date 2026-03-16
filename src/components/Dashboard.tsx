@@ -384,7 +384,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                   <div className="flex-1 lg:w-72 bg-[#1a1414] border border-accent/10 rounded-2xl p-4 flex justify-between items-center group hover:border-accent/40 transition-all">
                     <div>
                       <p className="text-[10px] text-slate-500 uppercase font-black mb-1">Loja Pessoal</p>
-                      <p className="text-xs text-accent truncate">belasousa.com.br/loja?ref={profile?.id?.substring(0,8)}</p>
+                      <p className="text-xs text-accent truncate">{window.location.host}/loja?ref={profile?.id}</p>
                     </div>
                     <button 
                       onClick={() => {
@@ -400,7 +400,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                   <div className="flex-1 lg:w-72 bg-[#1a1414] border border-accent/10 rounded-2xl p-4 flex justify-between items-center group hover:border-accent/40 transition-all">
                     <div>
                       <p className="text-[10px] text-slate-500 uppercase font-black mb-1">Página de Cadastro</p>
-                      <p className="text-xs text-accent truncate">belasousa.com.br/cadastro?ref={profile?.id?.substring(0,8)}</p>
+                      <p className="text-xs text-accent truncate">{window.location.host}/cadastro?ref={profile?.id}</p>
                     </div>
                     <button 
                       onClick={() => {
