@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle2, CreditCard, Truck, User, MapPin, ArrowRight, ArrowLeft } from 'lucide-react';
+import { initMercadoPago, Payment } from '@mercadopago/sdk-react';
+import { ORGANIZATION_ID } from '../lib/supabase';
+
+const mpKey = (import.meta as any).env.VITE_MERCADO_PAGO_PUBLIC_KEY;
+if (mpKey) {
+    initMercadoPago(mpKey, { locale: 'pt-BR' });
+}
 
 interface CartItem {
     id: number;
@@ -20,13 +27,57 @@ export default function Checkout({
     onBackToCart: () => void
 }) {
     const [step, setStep] = useState<'form' | 'success'>('form');
+    const [personal, setPersonal] = useState({ name: '', email: '', cpf: '', whatsapp: '' });
+    const [address, setAddress] = useState({ street: '', cep: '', city: '' });
+    const [isProcessing, setIsProcessing] = useState(false);
+
     const subtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     const shipping = subtotal > 300 ? 0 : 25;
     const total = subtotal + shipping;
 
-    const handleSubmit = (e: any) => {
-        e.preventDefault();
-        setStep('success');
+    const onSubmitPayment = async ({ selectedPaymentMethod, formData }: any) => {
+        return new Promise<void>((resolve, reject) => {
+            setIsProcessing(true);
+            
+            // Allow bypassing MP if fields are empty during dev, or handle validations
+            if(!personal.email) {
+                alert("Por favor, preencha seu e-mail nos dados pessoais.");
+                setIsProcessing(false);
+                reject();
+                return;
+            }
+
+            fetch(`${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/process-payment`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    payment_data: formData,
+                    items: items,
+                    total_amount: total,
+                    user_info: personal,
+                    organization_id: ORGANIZATION_ID,
+                }),
+            })
+            .then((res) => res.json())
+            .then((response) => {
+                setIsProcessing(false);
+                if (response.status === 'approved' || response.status === 'pending' || response.status === 'in_process' || response.id) {
+                     setStep('success');
+                     resolve();
+                } else {
+                     alert("Falha no pagamento: " + (response.message || response.status));
+                     reject();
+                }
+            })
+            .catch((error) => {
+                setIsProcessing(false);
+                console.error(error);
+                alert("Erro ao comunicar com o servidor de pagamento.");
+                reject();
+            });
+        });
     };
 
     if (step === 'success') {
@@ -74,7 +125,7 @@ export default function Checkout({
                         animate={{ opacity: 1, x: 0 }}
                         className="space-y-8"
                     >
-                        <form onSubmit={handleSubmit} className="space-y-8">
+                        <div className="space-y-8">
                             <section className="bg-white p-8 rounded-3xl border border-black/5 shadow-sm">
                                 <div className="flex items-center gap-3 mb-8">
                                     <div className="size-10 bg-accent/10 rounded-full flex items-center justify-center">
@@ -85,19 +136,23 @@ export default function Checkout({
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Nome Completo</label>
-                                        <input required type="text" placeholder="Ex: Maria Silva" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all" />
+                                        <input required type="text" placeholder="Ex: Maria Silva" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all" 
+                                            value={personal.name} onChange={e => setPersonal({...personal, name: e.target.value})} />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">E-mail</label>
-                                        <input required type="email" placeholder="maria@exemplo.com" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all" />
+                                        <input required type="email" placeholder="maria@exemplo.com" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all" 
+                                            value={personal.email} onChange={e => setPersonal({...personal, email: e.target.value})} />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">CPF</label>
-                                        <input required type="text" placeholder="000.000.000-00" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all" />
+                                        <input required type="text" placeholder="000.000.000-00" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all" 
+                                            value={personal.cpf} onChange={e => setPersonal({...personal, cpf: e.target.value})} />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">WhatsApp</label>
-                                        <input required type="tel" placeholder="(00) 00000-0000" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all" />
+                                        <input required type="tel" placeholder="(00) 00000-0000" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all" 
+                                            value={personal.whatsapp} onChange={e => setPersonal({...personal, whatsapp: e.target.value})} />
                                     </div>
                                 </div>
                             </section>
@@ -112,27 +167,55 @@ export default function Checkout({
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="md:col-span-2 space-y-2">
                                         <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Endereço</label>
-                                        <input required type="text" placeholder="Rua, número, complemento" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all" />
+                                        <input required type="text" placeholder="Rua, número, complemento" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all" 
+                                            value={address.street} onChange={e => setAddress({...address, street: e.target.value})} />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">CEP</label>
-                                        <input required type="text" placeholder="00000-000" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all" />
+                                        <input required type="text" placeholder="00000-000" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all" 
+                                            value={address.cep} onChange={e => setAddress({...address, cep: e.target.value})} />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Cidade / UF</label>
-                                        <input required type="text" placeholder="Sua cidade - UF" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all" />
+                                        <input required type="text" placeholder="Sua cidade - UF" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all" 
+                                            value={address.city} onChange={e => setAddress({...address, city: e.target.value})} />
                                     </div>
                                 </div>
                             </section>
 
-                            <button
-                                type="submit"
-                                className="w-full bg-primary hover:bg-primary/95 text-white py-5 rounded-2xl font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-primary/20"
-                            >
-                                Confirmar Pedido
-                                <CheckCircle2 className="w-5 h-5" />
-                            </button>
-                        </form>
+                            <section className="bg-white p-8 rounded-3xl border border-black/5 shadow-sm">
+                                <div className="flex items-center gap-3 mb-8">
+                                    <div className="size-10 bg-accent/10 rounded-full flex items-center justify-center">
+                                        <CreditCard className="w-5 h-5 text-accent" />
+                                    </div>
+                                    <h2 className="text-primary text-xl font-serif">Pagamento Seguro</h2>
+                                </div>
+                                
+                                <div className="min-h-[400px]">
+                                    {mpKey ? (
+                                        <Payment
+                                            initialization={{
+                                                amount: total,
+                                            }}
+                                            customization={{
+                                                paymentMethods: {
+                                                    creditCard: 'all',
+                                                    debitCard: 'all',
+                                                    ticket: 'all',
+                                                    bankTransfer: 'all',
+                                                    mercadoPago: 'all',
+                                                },
+                                            }}
+                                            onSubmit={onSubmitPayment}
+                                        />
+                                    ) : (
+                                        <div className="text-center p-8 bg-red-50 text-red-500 rounded-xl">
+                                            Chave do Mercado Pago não configurada no ambiente.
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+                        </div>
                     </motion.div>
 
                     {/* Resumo Lateral */}
