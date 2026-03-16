@@ -43,7 +43,7 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
                          // If profile exists but role is wrong
                          if (profile && profile.role !== 'admin') {
                             await supabase.auth.signOut();
-                            alert("Acesso negado: Este usuário não tem permissão de administrador.");
+                            alert("DEBUG 1: Este usuário existe mas tem o cargo '" + profile.role + "' e não 'admin'.");
                             setLoading(false);
                             return;
                          }
@@ -51,7 +51,7 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
                     
                     if (profileError || !profile) {
                         await supabase.auth.signOut();
-                        alert("Acesso negado ou Perfil não encontrado. Verifique se o registro foi criado no Banco.");
+                        alert("DEBUG 2: Perfil não encontrado ou erro de permissão (406). Verifique as políticas de RLS ou se o INSERT foi feito.");
                         setLoading(false);
                         return;
                     }
