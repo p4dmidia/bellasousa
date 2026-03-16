@@ -247,13 +247,13 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
 
   const treeData: AffiliateNode | null = profile ? {
     id: profile.id,
-    name: profile.full_name || profile.nome || 'Consultor',
+    name: profile.full_name || profile.nome || currentUser?.user_metadata?.nome || currentUser?.user_metadata?.full_name || 'Afiliado',
     level: profile.role === 'affiliate' ? 'Consultor' : (profile.role || 'Consultora'),
     pts: '0', // Placeholder
     image: profile.avatar_url,
     children: myNetwork.map(member => ({
       id: member.id,
-      name: member.full_name || member.nome || 'Consultor',
+      name: member.full_name || member.nome || 'Consultora',
       level: member.role === 'affiliate' ? 'Consultor' : (member.role || 'Consultora'),
       pts: '0',
       image: member.avatar_url
