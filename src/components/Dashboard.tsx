@@ -190,7 +190,6 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
        const { error: profileError } = await supabase
          .from('user_profiles')
          .update({
-             full_name: profileForm.nome,
              nome: profileForm.nome,
              phone: profileForm.phone,
              cpf: profileForm.cpf
@@ -205,7 +204,6 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
        // Update local profile state to reflect changes immediately
        setProfile((prev: any) => ({
            ...prev,
-           full_name: profileForm.nome,
            nome: profileForm.nome,
            phone: profileForm.phone,
            cpf: profileForm.cpf
