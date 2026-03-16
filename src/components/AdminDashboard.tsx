@@ -13,7 +13,8 @@ import {
   X,
   Search,
   CheckCircle,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { initialNetworkData, TreeNode } from './NetworkTree';
 import { supabase, ORGANIZATION_ID } from '../lib/supabase';
@@ -41,33 +42,49 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // New Product Form State
+  const [newProduct, setNewProduct] = useState({
+    name: '',
+    price: '',
+    stock: '',
+    description: '',
+    image_url: '',
+    category: 'Lingerie' // Default category
+  });
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       
-      // Fetch Products
-      const { data: productsData } = await supabase
-        .from('products')
-        .select('*')
-        .eq('organization_id', ORGANIZATION_ID);
-      
-      // Fetch Affiliates (User Profiles with non-member role if applicable, or just all users for this org)
-      const { data: affiliatesData } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('organization_id', ORGANIZATION_ID);
+      try {
+        // Fetch Products
+        const { data: productsData } = await supabase
+          .from('products')
+          .select('*')
+          .eq('organization_id', ORGANIZATION_ID)
+          .order('created_at', { ascending: false });
+        
+        // Fetch Affiliates
+        const { data: affiliatesData } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('organization_id', ORGANIZATION_ID);
 
-      // Fetch Orders
-      const { data: ordersData } = await supabase
-        .from('orders')
-        .select(`*`) // Removed full_name join as it doesn't exist
-        .eq('organization_id', ORGANIZATION_ID)
-        .order('created_at', { ascending: false });
+        // Fetch Orders
+        const { data: ordersData } = await supabase
+          .from('orders')
+          .select(`*`)
+          .eq('organization_id', ORGANIZATION_ID)
+          .order('created_at', { ascending: false });
 
-      setProducts(productsData || []);
-      setAffiliates(affiliatesData || []);
-      setOrders(ordersData || []);
-      setLoading(false);
+        setProducts(productsData || []);
+        setAffiliates(affiliatesData || []);
+        setOrders(ordersData || []);
+      } catch (err) {
+        console.error("AdminDashboard: Error fetching data:", err);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchData();
@@ -95,8 +112,11 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
 
   // Calculate stats from real data
   const totalRevenue = orders.reduce((acc, order) => acc + (order.total_amount || 0), 0);
-  const pendingOrders = orders.filter(o => o.status === 'pending').length;
-  const newAffiliates = affiliates.length; // Simplified for now
+  const totalCommissions = orders.reduce((acc, order) => acc + (order.commission_amount || 0), 0);
+  const affiliateRelatedRevenue = orders
+    .filter(o => o.referrer_id)
+    .reduce((acc, order) => acc + (order.total_amount || 0), 0);
+  
   const averageTicket = orders.length > 0 ? totalRevenue / orders.length : 0;
 
   const stats = [
@@ -108,8 +128,42 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
 
   const filteredAffiliates = affiliates.filter(a => 
     (a.email || "").toLowerCase().includes(affiliateSearch.toLowerCase()) ||
-    (a.company_name || "").toLowerCase().includes(affiliateSearch.toLowerCase())
+    (a.login || "").toLowerCase().includes(affiliateSearch.toLowerCase())
   );
+
+  const handleCreateProduct = async () => {
+    if (!newProduct.name || !newProduct.price) {
+      alert("Por favor, preencha nome e preço.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('products').insert({
+        name: newProduct.name,
+        description: newProduct.description,
+        price: parseFloat(newProduct.price.replace(',', '.')),
+        stock_quantity: parseInt(newProduct.stock) || 0,
+        image_url: newProduct.image_url,
+        category: newProduct.category,
+        organization_id: ORGANIZATION_ID,
+        is_active: true
+      });
+
+      if (error) throw error;
+      
+      alert("Produto criado com sucesso!");
+      setShowNewProductModal(false);
+      setNewProduct({ name: '', price: '', stock: '', description: '', image_url: '', category: 'Lingerie' });
+      // Refresh list
+      const { data } = await supabase.from('products').select('*').eq('organization_id', ORGANIZATION_ID).order('created_at', { ascending: false });
+      setProducts(data || []);
+    } catch (err: any) {
+      alert("Erro ao criar produto: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-[#130d0d] text-white overflow-hidden">
@@ -229,28 +283,39 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                    <div className="bg-[#1a1414] border border-accent/10 rounded-3xl p-6">
                      <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-6">Últimos Pedidos</h3>
                      <div className="space-y-4">
-                       {[1, 2, 3].map((_, i) => (
-                         <div key={i} className="flex justify-between items-center p-4 bg-[#130d0d] rounded-2xl border border-white/5">
-                           <div>
-                             <p className="text-sm font-medium text-white">Pedido #4{i}92</p>
-                             <p className="text-xs text-slate-500">Há {i + 1} hora(s)</p>
-                           </div>
-                           <span className="text-accent font-medium">R$ 245,00</span>
-                         </div>
-                       ))}
+                       {orders.slice(0, 5).length > 0 ? (
+                         orders.slice(0, 5).map((order) => (
+                          <div key={order.id} className="flex justify-between items-center p-4 bg-[#130d0d] rounded-2xl border border-white/5">
+                            <div>
+                              <p className="text-sm font-medium text-white">Pedido #{order.id.substring(0, 6)}</p>
+                              <p className="text-xs text-slate-500">{new Date(order.created_at).toLocaleDateString('pt-BR')}</p>
+                            </div>
+                            <span className="text-accent font-medium">R$ {order.total_amount?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        ))
+                       ) : (
+                         <p className="text-center text-slate-500 py-10">Nenhum pedido encontrado.</p>
+                       )}
                      </div>
                    </div>
                    <div className="bg-[#1a1414] border border-accent/10 rounded-3xl p-6">
                      <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-6">Avisos do Sistema</h3>
                      <div className="space-y-4">
-                        <div className="p-4 bg-accent/10 border border-accent/20 rounded-2xl">
-                          <p className="text-sm text-accent font-medium">Estoque Baixo</p>
-                          <p className="text-xs text-slate-400 mt-1">Sérum Facial de Lótus restam apenas 12 unidades.</p>
-                        </div>
-                        <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
-                          <p className="text-sm text-blue-400 font-medium">Novos Cadastros</p>
-                          <p className="text-xs text-slate-400 mt-1">3 novas consultoras aguardam aprovação.</p>
-                        </div>
+                        {products.filter(p => p.stock_quantity < 5).map(p => (
+                          <div key={p.id} className="p-4 bg-accent/10 border border-accent/20 rounded-2xl">
+                            <p className="text-sm text-accent font-medium">Estoque Baixo</p>
+                            <p className="text-xs text-slate-400 mt-1">{p.name} resta(m) apenas {p.stock_quantity} unidades.</p>
+                          </div>
+                        ))}
+                        {affiliates.filter(a => a.status === 'pending').length > 0 && (
+                          <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
+                            <p className="text-sm text-blue-400 font-medium">Novos Cadastros</p>
+                            <p className="text-xs text-slate-400 mt-1">{affiliates.filter(a => a.status === 'pending').length} novas consultoras aguardam aprovação.</p>
+                          </div>
+                        )}
+                        {products.filter(p => p.stock_quantity < 5).length === 0 && affiliates.filter(a => a.status === 'pending').length === 0 && (
+                          <p className="text-center text-slate-500 py-10 italic">Tudo sob controle no momento.</p>
+                        )}
                      </div>
                    </div>
                 </div>
@@ -329,19 +394,19 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                   <div className="bg-[#1a1414] border border-accent/10 rounded-3xl p-6 relative overflow-hidden">
                     <div className="relative z-10">
                       <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Total Afiliados</p>
-                      <p className="text-2xl font-serif text-white">452</p>
+                      <p className="text-2xl font-serif text-white">{affiliates.length}</p>
                     </div>
                   </div>
                   <div className="bg-[#1a1414] border border-accent/10 rounded-3xl p-6 relative overflow-hidden">
                     <div className="relative z-10">
                       <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Faturamento (Indicações)</p>
-                      <p className="text-2xl font-serif text-white text-green-400">R$ 54.200,00</p>
+                      <p className="text-2xl font-serif text-white text-green-400">R$ {affiliateRelatedRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     </div>
                   </div>
                   <div className="bg-[#1a1414] border border-accent/10 rounded-3xl p-6 relative overflow-hidden">
                     <div className="relative z-10">
                       <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Comissões a Pagar</p>
-                      <p className="text-2xl font-serif text-white text-accent">R$ 12.840,00</p>
+                      <p className="text-2xl font-serif text-white text-accent">R$ {totalCommissions.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     </div>
                   </div>
                 </div>
@@ -478,7 +543,6 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
             )}
 
           </AnimatePresence>
-
         </div>
       </main>
 
@@ -495,7 +559,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-[#1a1414] border border-accent/20 rounded-3xl p-8 max-w-2xl w-full relative"
+              className="bg-[#1a1414] border border-accent/20 rounded-3xl p-8 max-w-2xl w-full relative max-h-[90vh] overflow-y-auto"
             >
               <button 
                 onClick={() => setShowNewProductModal(false)}
@@ -506,29 +570,89 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
 
               <div className="mb-8">
                 <h3 className="text-2xl font-serif text-white mb-2">Novo Produto</h3>
-                <p className="text-slate-400 text-sm">Preencha os dados simulados abaixo para adicionar ao catálogo.</p>
+                <p className="text-slate-400 text-sm">Preencha os detalhes para cadastrar na boutique.</p>
               </div>
 
               <div className="space-y-6">
                 <div>
                   <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">Nome do Produto</label>
-                  <input type="text" placeholder="Ex: Batom Matte Vermelho" className="w-full bg-[#130d0d] border border-white/10 rounded-xl p-3 text-white focus:border-accent outline-none" />
+                  <input 
+                    type="text" 
+                    placeholder="Ex: Batom Matte Vermelho" 
+                    value={newProduct.name}
+                    onChange={e => setNewProduct({...newProduct, name: e.target.value})}
+                    className="w-full bg-[#130d0d] border border-white/10 rounded-xl p-3 text-white focus:border-accent outline-none" 
+                  />
                 </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">Preço (R$)</label>
-                    <input type="text" placeholder="0,00" className="w-full bg-[#130d0d] border border-white/10 rounded-xl p-3 text-white focus:border-accent outline-none" />
+                    <input 
+                      type="text" 
+                      placeholder="0,00" 
+                      value={newProduct.price}
+                      onChange={e => setNewProduct({...newProduct, price: e.target.value})}
+                      className="w-full bg-[#130d0d] border border-white/10 rounded-xl p-3 text-white focus:border-accent outline-none" 
+                    />
                   </div>
                   <div>
                     <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">Estoque Inicial</label>
-                    <input type="number" placeholder="0" className="w-full bg-[#130d0d] border border-white/10 rounded-xl p-3 text-white focus:border-accent outline-none" />
+                    <input 
+                      type="number" 
+                      placeholder="0" 
+                      value={newProduct.stock}
+                      onChange={e => setNewProduct({...newProduct, stock: e.target.value})}
+                      className="w-full bg-[#130d0d] border border-white/10 rounded-xl p-3 text-white focus:border-accent outline-none" 
+                    />
                   </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">Categoria</label>
+                    <select 
+                      value={newProduct.category}
+                      onChange={e => setNewProduct({...newProduct, category: e.target.value})}
+                      className="w-full bg-[#130d0d] border border-white/10 rounded-xl p-3 text-white focus:border-accent outline-none appearance-none"
+                    >
+                      <option value="Lingerie">Lingerie</option>
+                      <option value="Cosméticos">Cosméticos</option>
+                      <option value="Acessórios">Acessórios</option>
+                      <option value="Perfumaria">Perfumaria</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">Link da Imagem (URL)</label>
+                    <input 
+                      type="text" 
+                      placeholder="https://..." 
+                      value={newProduct.image_url}
+                      onChange={e => setNewProduct({...newProduct, image_url: e.target.value})}
+                      className="w-full bg-[#130d0d] border border-white/10 rounded-xl p-3 text-white focus:border-accent outline-none" 
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">Descrição Completa</label>
+                  <textarea 
+                    rows={4}
+                    placeholder="Descreva as características do produto..." 
+                    value={newProduct.description}
+                    onChange={e => setNewProduct({...newProduct, description: e.target.value})}
+                    className="w-full bg-[#130d0d] border border-white/10 rounded-xl p-3 text-white focus:border-accent outline-none resize-none" 
+                  />
+                </div>
+
                 <button 
-                  onClick={() => setShowNewProductModal(false)}
-                  className="w-full bg-accent text-primary py-3 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-colors mt-4"
+                  onClick={handleCreateProduct}
+                  disabled={loading}
+                  className="w-full bg-accent text-primary py-4 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-all flex items-center justify-center gap-2 group"
                 >
-                  Salvar Produto (Simulação)
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>
+                    <Plus className="w-4 h-4" /> Cadastrar Produto Real
+                  </>}
                 </button>
               </div>
             </motion.div>
@@ -561,7 +685,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
               <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
                   <div className="flex items-center gap-4 mb-2">
-                    <h3 className="text-2xl font-serif text-white">{selectedAffiliate.email?.split('@')[0] || 'Afiliado'}</h3>
+                    <h3 className="text-2xl font-serif text-white">{selectedAffiliate.login || selectedAffiliate.email?.split('@')[0] || 'Afiliado'}</h3>
                     <span className="text-[10px] bg-accent/20 text-accent px-2 py-1 rounded font-bold uppercase tracking-widest">{selectedAffiliate.role}</span>
                   </div>
                   <p className="text-slate-400 text-sm">{selectedAffiliate.email}</p>
@@ -596,15 +720,15 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="bg-[#130d0d] p-6 rounded-2xl border border-white/5">
                         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Saldo a Pagar</p>
-                        <p className="text-2xl font-serif text-accent">R$ {selectedAffiliate.balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        <p className="text-2xl font-serif text-accent">R$ {(selectedAffiliate.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                       </div>
                       <div className="bg-[#130d0d] p-6 rounded-2xl border border-white/5">
                         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Total Recebido</p>
-                        <p className="text-2xl font-serif text-white">R$ 4.250,80</p>
+                        <p className="text-2xl font-serif text-white">R$ {(selectedAffiliate.total_earnings || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                       </div>
                       <div className="bg-[#130d0d] p-6 rounded-2xl border border-white/5">
                         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Total de Vendas</p>
-                        <p className="text-2xl font-serif text-white">{orders.filter(o => o.user_id === selectedAffiliate.id).length}</p>
+                        <p className="text-2xl font-serif text-white">{orders.filter(o => o.referrer_id === selectedAffiliate.id).length}</p>
                       </div>
                     </div>
 
@@ -615,7 +739,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                       </div>
                       <button 
                         onClick={() => {
-                          const affiliateName = selectedAffiliate.email?.split('@')[0] || 'Afiliado';
+                          const affiliateName = selectedAffiliate.login || selectedAffiliate.email?.split('@')[0] || 'Afiliado';
                           alert(`Pagamento de R$ ${selectedAffiliate.balance || 0} confirmado para ${affiliateName}!`);
                           setSelectedAffiliate(null);
                         }}
@@ -653,6 +777,11 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                             </td>
                           </tr>
                         ))}
+                        {orders.filter(o => o.referrer_id === selectedAffiliate.id).length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="p-8 text-center text-slate-500 italic">Nenhum pedido vinculado a este afiliado.</td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </motion.div>
