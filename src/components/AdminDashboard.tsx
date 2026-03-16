@@ -14,8 +14,10 @@ import {
   Search,
   CheckCircle,
   FileText,
-  Loader2
+  Loader2,
+  Upload
 } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 import { initialNetworkData, TreeNode } from './NetworkTree';
 import { supabase, ORGANIZATION_ID } from '../lib/supabase';
 
@@ -29,6 +31,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
   const [selectedAffiliate, setSelectedAffiliate] = useState<any>(null);
   const [showNewProductModal, setShowNewProductModal] = useState(false);
   const [affiliateSearch, setAffiliateSearch] = useState("");
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [activeModalTab, setActiveModalTab] = useState<'details' | 'sales' | 'network'>('details');
 
   // Commission Config State
@@ -131,6 +134,13 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
     (a.login || "").toLowerCase().includes(affiliateSearch.toLowerCase())
   );
 
+  const categoryMap: Record<string, number> = {
+    'Lingerie': 1,
+    'Cosméticos': 2,
+    'Casa': 3,
+    'Acessórios': 4
+  };
+
   const handleCreateProduct = async () => {
     if (!newProduct.name || !newProduct.price) {
       alert("Por favor, preencha nome e preço.");
@@ -139,13 +149,42 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
 
     setLoading(true);
     try {
+      let finalImageUrl = newProduct.image_url;
+
+      // Se o usuário selecionou um arquivo local, fazemos o upload pro Supabase Storage
+      if (selectedImageFile) {
+        const fileExt = selectedImageFile.name.split('.').pop();
+        const fileName = `${uuidv4()}.${fileExt}`;
+        const filePath = `product/${fileName}`;
+
+        // Usando o bucket 'product-images' já existente e pasta 'product'
+        const { error: uploadError, data } = await supabase.storage
+          .from('product-images')
+          .upload(filePath, selectedImageFile);
+
+        if (uploadError) {
+            console.error("Erro no upload da imagem:", uploadError);
+            alert("Erro ao enviar a imagem. Verifique as configurações de permissão do bucket.");
+            // Mesmo com erro de upload, tenta salvar com a URL atual (vazia ou mock) para não travar
+        }
+
+        if (data) {
+             const { data: { publicUrl } } = supabase.storage
+                .from('product-images')
+                .getPublicUrl(filePath);
+             finalImageUrl = publicUrl;
+        }
+      }
+
+      const categoryId = categoryMap[newProduct.category] || 1;
+
       const { error } = await supabase.from('products').insert({
         name: newProduct.name,
         description: newProduct.description,
         price: parseFloat(newProduct.price.replace(',', '.')),
         stock_quantity: parseInt(newProduct.stock) || 0,
-        image_url: newProduct.image_url,
-        category: newProduct.category,
+        image_url: finalImageUrl || 'https://images.unsplash.com/photo-1584305574647-0cb93d30b912?w=500&auto=format&fit=crop&q=60',
+        category_id: categoryId,
         organization_id: ORGANIZATION_ID,
         is_active: true
       });
@@ -155,9 +194,10 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
       alert("Produto criado com sucesso!");
       setShowNewProductModal(false);
       setNewProduct({ name: '', price: '', stock: '', description: '', image_url: '', category: 'Lingerie' });
+      setSelectedImageFile(null);
       // Refresh list
-      const { data } = await supabase.from('products').select('*').eq('organization_id', ORGANIZATION_ID).order('created_at', { ascending: false });
-      setProducts(data || []);
+      const { data: updatedData } = await supabase.from('products').select('*').eq('organization_id', ORGANIZATION_ID).order('created_at', { ascending: false });
+      setProducts(updatedData || []);
     } catch (err: any) {
       alert("Erro ao criar produto: " + err.message);
     } finally {
@@ -623,14 +663,38 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">Link da Imagem (URL)</label>
-                    <input 
-                      type="text" 
-                      placeholder="https://..." 
-                      value={newProduct.image_url}
-                      onChange={e => setNewProduct({...newProduct, image_url: e.target.value})}
-                      className="w-full bg-[#130d0d] border border-white/10 rounded-xl p-3 text-white focus:border-accent outline-none" 
-                    />
+                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">Imagem do Produto</label>
+                    <div className="flex gap-2">
+                      <label className="flex-1 bg-[#130d0d] border border-white/10 rounded-xl p-3 text-slate-400 hover:border-accent transition-colors cursor-pointer flex items-center justify-between group">
+                        <span className="truncate text-xs">{selectedImageFile ? selectedImageFile.name : 'Procurar no computador...'}</span>
+                        <Upload className="w-4 h-4 text-accent group-hover:scale-110 transition-transform" />
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          className="hidden" 
+                          onChange={(e) => {
+                             if(e.target.files && e.target.files[0]) {
+                                 setSelectedImageFile(e.target.files[0]);
+                                 // Clear URL if file is selected to avoid confusion
+                                 setNewProduct({...newProduct, image_url: ''});
+                             }
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <div className="mt-2">
+                       <label className="text-[10px] text-slate-500 uppercase tracking-widest">Ou insira uma URL externa:</label>
+                       <input 
+                          type="text" 
+                          placeholder="https://..." 
+                          value={newProduct.image_url}
+                          onChange={e => {
+                              setNewProduct({...newProduct, image_url: e.target.value});
+                              if(e.target.value) setSelectedImageFile(null); // Clear file if URL is typed
+                          }}
+                          className="w-full bg-[#130d0d] border border-white/10 rounded-xl p-3 text-white focus:border-accent outline-none text-xs mt-1" 
+                        />
+                    </div>
                   </div>
                 </div>
 
