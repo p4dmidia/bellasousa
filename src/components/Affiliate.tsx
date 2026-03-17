@@ -18,6 +18,12 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
         e.preventDefault();
         setLoading(true);
 
+        const params = new URLSearchParams(window.location.search);
+        const refFromUrl = params.get('ref') || params.get('aff') || params.get('r');
+        const referrerId = refFromUrl || localStorage.getItem('affiliate_referrer') || undefined;
+
+        console.log("Affiliate Signup: Referrer identified:", referrerId);
+
         const [nome, ...sobrenomeParts] = formData.fullName.split(' ');
         const sobrenome = sobrenomeParts.join(' ');
 
@@ -34,7 +40,7 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
                     pix_key: formData.pixKey,
                     login: formData.email.split('@')[0], // Default login as part of email
                     organization_id: ORGANIZATION_ID,
-                    referrer_id: localStorage.getItem('affiliate_referrer') || undefined
+                    referrer_id: referrerId
                 }
             }
         });
