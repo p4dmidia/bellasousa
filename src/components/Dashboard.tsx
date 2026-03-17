@@ -141,13 +141,6 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
       
       if (profileData) {
         setProfile(profileData);
-        setProfileForm(prev => ({
-           ...prev,
-           nome: user?.user_metadata?.full_name || user?.user_metadata?.nome || profileData.nome || profileData.full_name || '',
-           email: user.email || '',
-           phone: user?.user_metadata?.phone || user?.user_metadata?.whatsapp || profileData.phone || '',
-           cpf: user?.user_metadata?.cpf || profileData.cpf || ''
-        }));
         
         // Fetch All Users for this organization to build network and map names
         const { data: allUsers, error: usersError } = await supabase
@@ -158,17 +151,17 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         if (usersError) console.error("Dashboard: Error fetching users:", usersError);
         const usersList = allUsers || [];
 
-        // Try to identify the referral column (fallback logic)
-        const findNetwork = (all: any[], targetId: string) => {
-          return all.filter(p => 
-            p.referrer_id === targetId || 
-            p.parent_id === targetId || 
-            p.sponsor_id === targetId ||
-            p.referred_by === targetId
-          );
-        };
 
-        const network = findNetwork(usersList, user.id);
+        setProfileForm(prev => ({
+           ...prev,
+           nome: user?.user_metadata?.full_name || user?.user_metadata?.nome || profileData.nome || profileData.full_name || '',
+           email: user.email || '',
+           phone: user?.user_metadata?.phone || user?.user_metadata?.whatsapp || profileData.phone || '',
+           cpf: user?.user_metadata?.cpf || profileData.cpf || ''
+        }));
+        
+
+        const network = usersList.filter(u => u.referrer_id === user.id);
         console.log("Dashboard: My Network count:", network.length);
         setMyNetwork(network);
 
@@ -295,20 +288,26 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
     { month: 'Mar', value: 60 },
   ];
 
-  const treeData: AffiliateNode | null = profile ? {
-    id: profile.id,
-    name: profile.full_name || profile.nome || currentUser?.user_metadata?.nome || currentUser?.user_metadata?.full_name || 'Afiliado',
-    level: profile.role === 'affiliate' ? 'Consultor' : (profile.role || 'Consultora'),
-    pts: '0', // Placeholder
-    image: profile.avatar_url,
-    children: myNetwork.map(member => ({
-      id: member.id,
-      name: member.full_name || member.nome || 'Consultora',
-      level: member.role === 'affiliate' ? 'Consultor' : (member.role || 'Consultora'),
-      pts: '0',
-      image: member.avatar_url
-    }))
-  } : null;
+  const buildTree = (uId: string): AffiliateNode | null => {
+    const userNode = uId === profile?.id ? profile : (myNetwork.find(u => u.id === uId));
+    if (!userNode) return null;
+
+    const children = myNetwork
+      .filter(u => u.referrer_id === uId)
+      .map(child => buildTree(child.id))
+      .filter((node): node is AffiliateNode => node !== null);
+
+    return {
+      id: userNode.id,
+      name: userNode.full_name || userNode.nome || userNode.email?.split('@')[0] || 'Consultora',
+      level: userNode.role === 'affiliate' ? 'Consultora' : (userNode.role || 'Consultora'),
+      pts: "0",
+      image: userNode.avatar_url,
+      children: children.length > 0 ? children : undefined
+    };
+  };
+
+  const treeData = buildTree(profile?.id);
 
   if (loading) {
     return (
