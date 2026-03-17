@@ -40,6 +40,9 @@ serve(async (req) => {
       }
     });
 
+    // Calculate commission (10% for direct referral)
+    const commission_amount = affiliate_id ? (total_amount * 0.10) : 0;
+
     // Save order in Supabase
     const { error: dbError } = await supabase.from('orders').insert({
       organization_id: organization_id,
@@ -48,6 +51,7 @@ serve(async (req) => {
       status: paymentResult.status === 'approved' ? 'completed' : 'pending',
       payment_id: paymentResult.id?.toString(),
       affiliate_id: affiliate_id,
+      commission_amount: commission_amount
     });
 
     if (dbError) {

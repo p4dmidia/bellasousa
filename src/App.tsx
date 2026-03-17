@@ -36,10 +36,11 @@ export default function App() {
   useEffect(() => {
     // 1. Capture referral code
     const params = new URLSearchParams(window.location.search);
-    const ref = params.get('ref');
+    const ref = params.get('ref') || params.get('aff') || params.get('r');
     if (ref) {
-      console.log("App: Affiliate found:", ref);
+      console.log("App: Referral code captured:", ref);
       localStorage.setItem('affiliate_referrer', ref);
+      // Optional: Clean URL but keeping it for now to avoid unexpected behavior with manual routing
     }
 
     // 2. Handle sub-paths (alternative to hash router)

@@ -23,12 +23,35 @@ serve(async (req) => {
       if (paymentInfo.status === 'approved') newStatus = 'completed';
       if (paymentInfo.status === 'rejected' || paymentInfo.status === 'cancelled') newStatus = 'cancelled';
 
-      const { error } = await supabase
+      const { data: orderData, error: fetchError } = await supabase
         .from('orders')
         .update({ status: newStatus })
-        .eq('payment_id', id.toString());
+        .eq('payment_id', id.toString())
+        .select('affiliate_id, commission_amount')
+        .single();
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
+
+      // Update Affiliate Balance if payment was approved and there is an affiliate
+      if (newStatus === 'completed' && orderData && orderData.affiliate_id && orderData.commission_amount > 0) {
+        // We use a transaction-like update by fetching and incrementing
+        // Note: For high frequency, a database function (RPC) would be better
+        const { data: profile, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('balance, total_earnings')
+          .eq('id', orderData.affiliate_id)
+          .single();
+        
+        if (!profileError && profile) {
+          await supabase
+            .from('user_profiles')
+            .update({
+              balance: (profile.balance || 0) + orderData.commission_amount,
+              total_earnings: (profile.total_earnings || 0) + orderData.commission_amount
+            })
+            .eq('id', orderData.affiliate_id);
+        }
+      }
     }
 
     return new Response('OK', { status: 200 })
