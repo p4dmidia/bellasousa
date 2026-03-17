@@ -26,7 +26,8 @@ import {
   Copy,
   ExternalLink,
   Loader2,
-  UserCog
+  UserCog,
+  Upload
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { supabase, ORGANIZATION_ID } from '../lib/supabase';
@@ -51,6 +52,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
     confirmPassword: ''
   });
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   const showToast = (message: string) => {
     setToast({ message, visible: true });
@@ -60,6 +62,54 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile) return;
+
+    // Validate size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      showToast("Imagem muito grande. Máximo 2MB.");
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${profile.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      // Upload to 'product-images' bucket (shared for now as it exists)
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(filePath);
+
+      // Update Profile Table
+      const { error: updateError } = await supabase
+        .from('user_profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', profile.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setProfile((prev: any) => ({ ...prev, avatar_url: publicUrl }));
+      showToast("Foto de perfil atualizada!");
+      
+    } catch (error: any) {
+      console.error("Erro no upload:", error);
+      showToast("Erro ao carregar imagem.");
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   const [myOrders, setMyOrders] = useState<any[]>([]);
   const [myNetwork, setMyNetwork] = useState<any[]>([]);
   const [stats, setStats] = useState([
@@ -723,6 +773,45 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
               className="max-w-3xl mx-auto space-y-8"
             >
               <div className="bg-white/5 border border-accent/10 p-8 md:p-12 rounded-[40px]">
+                <div className="flex flex-col md:flex-row items-center gap-8 mb-12 pb-8 border-b border-accent/10">
+                  <div className="relative group">
+                    <div className="w-32 h-32 rounded-full border-4 border-accent p-1 overflow-hidden bg-[#1a1414] flex items-center justify-center">
+                      {isUploadingAvatar ? (
+                        <Loader2 className="w-8 h-8 text-accent animate-spin" />
+                      ) : profile?.avatar_url ? (
+                        <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover rounded-full" />
+                      ) : (
+                        <Users className="w-12 h-12 text-accent/20" />
+                      )}
+                    </div>
+                    <label className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-all">
+                      <Upload className="w-6 h-6 text-white" />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleAvatarUpload}
+                        disabled={isUploadingAvatar}
+                      />
+                    </label>
+                  </div>
+                  <div className="text-center md:text-left">
+                    <h3 className="font-serif text-2xl italic">Sua Foto de Perfil</h3>
+                    <p className="text-slate-500 text-xs mt-1 uppercase tracking-widest mb-4">Aparece no seu painel e na rede de consultoras</p>
+                    <label className="inline-flex items-center gap-2 px-6 py-2 bg-accent/10 border border-accent/20 rounded-xl text-[10px] font-bold uppercase tracking-widest text-accent hover:bg-accent hover:text-primary transition-all cursor-pointer">
+                      <Upload className="w-3 h-3" />
+                      {isUploadingAvatar ? 'Carregando...' : 'Alterar Foto'}
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleAvatarUpload}
+                        disabled={isUploadingAvatar}
+                      />
+                    </label>
+                  </div>
+                </div>
+
                 <div className="flex items-center gap-4 mb-8">
                   <UserCog className="w-8 h-8 text-accent" />
                   <div>

@@ -77,9 +77,13 @@ export function TreeNode({ node, isLast = false }: { node: AffiliateNode; isLast
            }}
            className="relative cursor-pointer group"
         >
-          <div className={`w-16 h-16 rounded-full border-4 ${isNoUser ? 'border-slate-700 bg-slate-800' : 'border-accent bg-primary'} p-0.5 shadow-xl transition-all`}>
-            <div className="w-full h-full rounded-full flex items-center justify-center bg-white/5">
-              <Users className={`w-6 h-6 ${isNoUser ? 'text-slate-600' : 'text-accent'}`} />
+          <div className={`w-16 h-16 rounded-full border-4 ${isNoUser ? 'border-slate-700 bg-slate-800' : 'border-accent bg-primary'} p-0.5 shadow-xl transition-all overflow-hidden`}>
+            <div className="w-full h-full rounded-full flex items-center justify-center bg-white/5 overflow-hidden">
+              {node.image ? (
+                <img src={node.image} alt={node.name} className="w-full h-full object-cover rounded-full" />
+              ) : (
+                <Users className={`w-6 h-6 ${isNoUser ? 'text-slate-600' : 'text-accent'}`} />
+              )}
             </div>
           </div>
           
