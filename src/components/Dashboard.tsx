@@ -123,9 +123,8 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
     { label: 'Nível Atual', value: 'Consultora', icon: <Award className="w-5 h-5" />, trend: 'Nível', color: 'bg-purple-500' },
   ]);
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      setLoading(true);
+  const fetchDashboardData = async () => {
+    setLoading(true);
       const { data: auth } = await supabase.auth.getUser();
       const user = auth?.user;
       
@@ -135,34 +134,57 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
       }
       setCurrentUser(user);
 
-      // Fetch Profile
+      // Fetch Profile - discovery first to avoid ID mismatch issues
       const { data: profileData } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', user.id)
-        .eq('organization_id', ORGANIZATION_ID)
         .maybeSingle();
       
       if (profileData) {
         setProfile(profileData);
         
+        // Use the profile's own organization_id (robust multi-tenancy)
+        const userOrgId = profileData.organization_id || ORGANIZATION_ID;
+
         // Fetch All Users for this organization to build network and map names
         const { data: allUsers, error: usersError } = await supabase
           .from('user_profiles')
           .select('*')
-          .eq('organization_id', ORGANIZATION_ID);
+          .eq('organization_id', userOrgId);
         
         if (usersError) console.error("Dashboard: Error fetching users:", usersError);
         const usersList = allUsers || [];
 
-        // Build Tree from ALL users in organization to ensure depth
+        // Ensure current user is in the list for tree building
+        if (profileData && !usersList.find(u => u.id === profileData.id)) {
+          usersList.push(profileData);
+        }
+
         const network = usersList.filter(u => u.referrer_id === user.id);
         console.log("Dashboard: My Network count:", network.length);
         setMyNetwork(network);
 
-        const tree = buildTree(user.id);
-        console.log("Dashboard: Tree built with depth");
-        setTreeData(tree);
+        // Recursive function to build the network tree structure
+        const generateTree = (uId: string, list: any[]): AffiliateNode | null => {
+          const userNode = list.find(u => u.id === uId);
+          if (!userNode) return null;
+
+          const children = list
+            .filter(u => u.referrer_id === uId)
+            .map(child => generateTree(child.id, list))
+            .filter((node): node is AffiliateNode => node !== null);
+
+          return {
+            id: userNode.id,
+            name: userNode.full_name || userNode.nome || userNode.email?.split('@')[0] || 'Consultora',
+            level: userNode.role === 'affiliate' ? 'Consultora' : (userNode.role || 'Consultora'),
+            pts: "0",
+            image: userNode.avatar_url,
+            children: children.length > 0 ? children : undefined
+          };
+        };
+
 
 
         setProfileForm(prev => ({
@@ -175,11 +197,15 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         
 
 
+        const tree = generateTree(user.id, usersList);
+        console.log("Dashboard: Tree built with depth. Users:", usersList.length, "Org:", userOrgId);
+        setTreeData(tree);
+
         // Fetch Orders for this organization
         const { data: allOrders, error: ordersError } = await supabase
           .from('orders')
           .select('*')
-          .eq('organization_id', ORGANIZATION_ID)
+          .eq('organization_id', userOrgId)
           .order('created_at', { ascending: false });
         
         if (ordersError) console.error("Dashboard: Error fetching orders:", ordersError);
@@ -219,6 +245,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
       setLoading(false);
     };
 
+  useEffect(() => {
     fetchDashboardData();
   }, []);
 
@@ -298,24 +325,6 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
     { month: 'Mar', value: 60 },
   ];
 
-  const buildTree = (uId: string): AffiliateNode | null => {
-    const userNode = uId === profile?.id ? profile : (myNetwork.find(u => u.id === uId));
-    if (!userNode) return null;
-
-    const children = myNetwork
-      .filter(u => u.referrer_id === uId)
-      .map(child => buildTree(child.id))
-      .filter((node): node is AffiliateNode => node !== null);
-
-    return {
-      id: userNode.id,
-      name: userNode.full_name || userNode.nome || userNode.email?.split('@')[0] || 'Consultora',
-      level: userNode.role === 'affiliate' ? 'Consultora' : (userNode.role || 'Consultora'),
-      pts: "0",
-      image: userNode.avatar_url,
-      children: children.length > 0 ? children : undefined
-    };
-  };
 
 
   if (loading) {
@@ -611,7 +620,15 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                     <h3 className="font-serif text-3xl italic">Minha Rede de Consultoras</h3>
                     <p className="text-slate-500 text-xs mt-1 uppercase tracking-widest">Visualização de Indicação Direta e Indireta</p>
                   </div>
-                  <div className="flex bg-white/5 p-1 rounded-2xl border border-accent/10">
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => fetchDashboardData()}
+                      className="flex items-center gap-2 px-6 py-3 bg-white/5 border border-accent/20 rounded-2xl text-[10px] uppercase font-bold tracking-[0.2em] text-accent hover:bg-accent/10 transition-all active:scale-95 shadow-lg overflow-hidden relative group"
+                    >
+                      <Loader2 className={`w-4 h-4 ${loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+                      <span>{loading ? 'Sincronizando...' : 'Atualizar Rede'}</span>
+                    </button>
+                    <div className="flex bg-white/5 p-1 rounded-2xl border border-accent/10">
                     <button 
                       onClick={() => setNetworkView('tree')}
                       className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest transition-all ${networkView === 'tree' ? 'bg-accent text-primary' : 'text-slate-400 hover:text-white'}`}
@@ -626,13 +643,21 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                       <List className="w-4 h-4" />
                       Lista
                     </button>
+                    </div>
                   </div>
                 </div>
 
                 {networkView === 'tree' ? (
                   <div className="bg-[#1a1414] rounded-3xl p-12 overflow-x-auto min-h-[500px] flex justify-center items-start">
                     <div className="inline-block">
-                      {treeData && <TreeNode node={treeData} />}
+                      {treeData ? (
+                        <TreeNode node={treeData} />
+                      ) : (
+                        <div className="flex flex-col items-center gap-4 text-slate-500">
+                           <Loader2 className="w-8 h-8 animate-spin" />
+                           <p className="italic">Gerando visualização da rede...</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
