@@ -378,29 +378,48 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
               <div className="bg-gradient-to-r from-accent/20 to-transparent border border-accent/20 p-8 rounded-[40px] flex flex-col lg:flex-row justify-between items-center gap-8">
                 <div>
                   <h3 className="font-serif text-2xl italic mb-2">Seus Links de Indicação</h3>
-                  <p className="text-slate-500 text-xs uppercase tracking-widest">Compartilhe e ganhe comissões sobre vendas e novas consultoras</p>
+                  <p className="text-slate-500 text-[10px] uppercase tracking-widest font-bold">Compartilhe e ganhe comissões sobre vendas e novas consultoras</p>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-                  <div className="flex-1 lg:w-72 bg-[#1a1414] border border-accent/10 rounded-2xl p-4 flex justify-between items-center group hover:border-accent/40 transition-all">
-                    <div>
-                      <p className="text-[10px] text-slate-500 uppercase font-black mb-1">Loja Pessoal</p>
-                      <p className="text-xs text-accent truncate">{window.location.host}/loja?ref={profile?.id}</p>
+                <div className="flex flex-col sm:flex-row gap-6 w-full lg:w-auto">
+                  {/* Home Link */}
+                  <div className="flex-1 lg:w-80 bg-[#1a1414] border border-accent/10 rounded-2xl p-4 flex justify-between items-center group hover:border-accent/40 transition-all shadow-lg overflow-hidden">
+                    <div className="flex-1 min-w-0 mr-4">
+                      <p className="text-[10px] text-slate-500 uppercase font-black mb-1.5 flex items-center gap-1.5">
+                        <Grid className="w-3 h-3 text-accent/50" />
+                        Página Principal (Home)
+                      </p>
+                      <div className="bg-black/20 rounded-lg px-2 py-1.5 border border-white/5">
+                        <p className="text-xs text-accent truncate font-mono select-all">
+                          {window.location.host}/?ref={profile?.id}
+                        </p>
+                      </div>
                     </div>
                     <button 
                       onClick={() => {
-                        const link = `${window.location.origin}/loja?ref=${profile?.id}`;
+                        const link = `${window.location.origin}/?ref=${profile?.id}`;
                         navigator.clipboard.writeText(link);
-                        showToast("Link da Loja copiado com sucesso!");
+                        showToast("Link da Home copiado com sucesso!");
                       }}
-                      className="p-2 hover:bg-accent/10 rounded-lg text-accent transition-colors"
+                      className="flex flex-col items-center gap-1 p-3 bg-accent text-primary rounded-xl hover:bg-accent/90 transition-all shrink-0 shadow-xl group-hover:scale-105"
+                      title="Copiar Link"
                     >
                       <Copy className="w-4 h-4" />
+                      <span className="text-[8px] font-bold uppercase tracking-tighter">Copiar</span>
                     </button>
                   </div>
-                  <div className="flex-1 lg:w-72 bg-[#1a1414] border border-accent/10 rounded-2xl p-4 flex justify-between items-center group hover:border-accent/40 transition-all">
-                    <div>
-                      <p className="text-[10px] text-slate-500 uppercase font-black mb-1">Página de Cadastro</p>
-                      <p className="text-xs text-accent truncate">{window.location.host}/cadastro?ref={profile?.id}</p>
+
+                  {/* Cadastro Link */}
+                  <div className="flex-1 lg:w-80 bg-[#1a1414] border border-accent/10 rounded-2xl p-4 flex justify-between items-center group hover:border-accent/40 transition-all shadow-lg overflow-hidden">
+                    <div className="flex-1 min-w-0 mr-4">
+                      <p className="text-[10px] text-slate-500 uppercase font-black mb-1.5 flex items-center gap-1.5">
+                        <Users className="w-3 h-3 text-accent/50" />
+                        Página de Cadastro
+                      </p>
+                      <div className="bg-black/20 rounded-lg px-2 py-1.5 border border-white/5">
+                        <p className="text-xs text-accent truncate font-mono select-all">
+                          {window.location.host}/cadastro?ref={profile?.id}
+                        </p>
+                      </div>
                     </div>
                     <button 
                       onClick={() => {
@@ -408,9 +427,11 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                         navigator.clipboard.writeText(link);
                         showToast("Link de Cadastro copiado com sucesso!");
                       }}
-                      className="p-2 hover:bg-accent/10 rounded-lg text-accent transition-colors"
+                      className="flex flex-col items-center gap-1 p-3 bg-accent text-primary rounded-xl hover:bg-accent/90 transition-all shrink-0 shadow-xl group-hover:scale-105"
+                      title="Copiar Link"
                     >
                       <Copy className="w-4 h-4" />
+                      <span className="text-[8px] font-bold uppercase tracking-tighter">Copiar</span>
                     </button>
                   </div>
                 </div>

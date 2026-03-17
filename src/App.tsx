@@ -34,8 +34,25 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
   useEffect(() => {
-    // Check if URL has #admin to open admin panel
-    if (window.location.hash === '#admin') {
+    // 1. Capture referral code
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      console.log("App: Affiliate found:", ref);
+      localStorage.setItem('affiliate_referrer', ref);
+    }
+
+    // 2. Handle sub-paths (alternative to hash router)
+    const path = window.location.pathname;
+    if (path === '/loja') {
+      setView('store');
+    } else if (path === '/cadastro') {
+      setView('affiliate');
+    } else if (path === '/login') {
+      setView('login');
+    } else if (path === '/admin') {
+      setView('admin-login');
+    } else if (window.location.hash === '#admin') {
       setView('admin-login');
     }
   }, []);

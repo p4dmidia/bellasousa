@@ -33,7 +33,8 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
                     city: formData.city,
                     pix_key: formData.pixKey,
                     login: formData.email.split('@')[0], // Default login as part of email
-                    organization_id: ORGANIZATION_ID
+                    organization_id: ORGANIZATION_ID,
+                    referrer_id: localStorage.getItem('affiliate_referrer') || undefined
                 }
             }
         });

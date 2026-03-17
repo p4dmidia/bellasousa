@@ -58,6 +58,7 @@ export default function Checkout({
                     total_amount: total,
                     user_info: personal,
                     organization_id: ORGANIZATION_ID,
+                    affiliate_id: localStorage.getItem('affiliate_referrer') || undefined
                 }),
             })
             .then((res) => res.json())

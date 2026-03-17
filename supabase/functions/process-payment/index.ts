@@ -20,7 +20,7 @@ serve(async (req) => {
     const payment = new Payment(client);
 
     const body = await req.json();
-    const { payment_data, items, user_info, total_amount, organization_id } = body;
+    const { payment_data, items, user_info, total_amount, organization_id, affiliate_id } = body;
 
     // Optional: create order in Supabase before payment, as 'pending'
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -35,6 +35,7 @@ serve(async (req) => {
         metadata: {
           user_email: user_info?.email,
           organization_id: organization_id,
+          affiliate_id: affiliate_id,
         }
       }
     });
@@ -46,6 +47,7 @@ serve(async (req) => {
       total_amount: total_amount,
       status: paymentResult.status === 'approved' ? 'completed' : 'pending',
       payment_id: paymentResult.id?.toString(),
+      affiliate_id: affiliate_id,
     });
 
     if (dbError) {
