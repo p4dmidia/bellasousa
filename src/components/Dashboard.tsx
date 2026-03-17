@@ -27,7 +27,9 @@ import {
   ExternalLink,
   Loader2,
   UserCog,
-  Upload
+  Upload,
+  Menu,
+  X
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { supabase, ORGANIZATION_ID } from '../lib/supabase';
@@ -41,6 +43,7 @@ interface DashboardProps {
 export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'network' | 'financial' | 'training' | 'profile'>('overview');
   const [networkView, setNetworkView] = useState<'tree' | 'list'>('tree');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: '', visible: false });
 
   const [profileForm, setProfileForm] = useState({
@@ -62,6 +65,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [treeData, setTreeData] = useState<AffiliateNode | null>(null);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -151,6 +155,15 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         if (usersError) console.error("Dashboard: Error fetching users:", usersError);
         const usersList = allUsers || [];
 
+        // Build Tree from ALL users in organization to ensure depth
+        const network = usersList.filter(u => u.referrer_id === user.id);
+        console.log("Dashboard: My Network count:", network.length);
+        setMyNetwork(network);
+
+        const tree = buildTree(user.id);
+        console.log("Dashboard: Tree built with depth");
+        setTreeData(tree);
+
 
         setProfileForm(prev => ({
            ...prev,
@@ -161,9 +174,6 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         }));
         
 
-        const network = usersList.filter(u => u.referrer_id === user.id);
-        console.log("Dashboard: My Network count:", network.length);
-        setMyNetwork(network);
 
         // Fetch Orders for this organization
         const { data: allOrders, error: ordersError } = await supabase
@@ -307,7 +317,6 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
     };
   };
 
-  const treeData = buildTree(profile?.id);
 
   if (loading) {
     return (
@@ -319,8 +328,32 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
 
   return (
     <div className="flex h-screen bg-[#1c1616] text-white">
+      {/* Mobile Top Bar */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-20 bg-[#130d0d] border-b border-accent/10 flex items-center justify-between px-6 z-50">
+        <h2 className="font-serif italic text-xl text-accent">Bela Sousa</h2>
+        <button 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 bg-white/5 rounded-xl text-accent border border-accent/20"
+        >
+          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
+      </div>
+
+      {/* Sidebar Overlay (Mobile) */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
-      <aside className="w-64 border-r border-accent/10 flex flex-col">
+      <aside className={`fixed inset-y-0 left-0 w-64 border-r border-accent/10 bg-[#1c1616] flex flex-col z-[70] transition-transform duration-300 transform lg:relative lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-8 border-b border-accent/10 flex flex-col items-center">
           <div className="w-20 h-20 rounded-full border-2 border-accent p-1 mb-4 overflow-hidden bg-white/10 flex items-center justify-center">
             {profile?.avatar_url ? (
@@ -337,35 +370,35 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
 
         <nav className="flex-1 py-6 px-4 space-y-2">
           <button 
-            onClick={() => setActiveTab('overview')}
+            onClick={() => { setActiveTab('overview'); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${activeTab === 'overview' ? 'bg-accent text-primary font-bold' : 'hover:bg-accent/10 text-slate-400'}`}
           >
             <LayoutDashboard className="w-5 h-5" />
             <span className="text-sm">Visão Geral</span>
           </button>
           <button 
-            onClick={() => setActiveTab('network')}
+            onClick={() => { setActiveTab('network'); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${activeTab === 'network' ? 'bg-accent text-primary font-bold' : 'hover:bg-accent/10 text-slate-400'}`}
           >
             <Users className="w-5 h-5" />
             <span className="text-sm">Minha Rede</span>
           </button>
           <button 
-            onClick={() => setActiveTab('financial')}
+            onClick={() => { setActiveTab('financial'); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${activeTab === 'financial' ? 'bg-accent text-primary font-bold' : 'hover:bg-accent/10 text-slate-400'}`}
           >
             <Wallet className="w-5 h-5" />
             <span className="text-sm">Financeiro</span>
           </button>
           <button 
-            onClick={() => setActiveTab('training')}
+            onClick={() => { setActiveTab('training'); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${activeTab === 'training' ? 'bg-accent text-primary font-bold' : 'hover:bg-accent/10 text-slate-400'}`}
           >
             <GraduationCap className="w-5 h-5" />
             <span className="text-sm">Treinamentos</span>
           </button>
           <button 
-            onClick={() => setActiveTab('profile')}
+            onClick={() => { setActiveTab('profile'); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${activeTab === 'profile' ? 'bg-accent text-primary font-bold' : 'hover:bg-accent/10 text-slate-400'}`}
           >
             <UserCog className="w-5 h-5" />
@@ -392,11 +425,11 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto bg-[#130d0d]">
-        <header className="p-8 flex justify-between items-center border-b border-accent/10 sticky top-0 bg-[#130d0d]/80 backdrop-blur-md z-10">
+      <main className="flex-1 overflow-y-auto bg-[#130d0d] pt-20 lg:pt-0">
+        <header className="p-4 lg:p-8 flex justify-between items-center border-b border-accent/10 sticky top-0 lg:top-0 bg-[#130d0d]/80 backdrop-blur-md z-10">
           <div>
-            <h1 className="text-3xl font-serif">Escritório Virtual</h1>
-            <p className="text-slate-500 text-sm">
+            <h1 className="text-xl lg:text-3xl font-serif">Escritório Virtual</h1>
+            <p className="hidden lg:block text-slate-500 text-sm">
                 Bem-vinda, {profile?.full_name || currentUser?.user_metadata?.nome || currentUser?.user_metadata?.full_name?.split(' ')[0] || 'Consultora'}
             </p>
           </div>
