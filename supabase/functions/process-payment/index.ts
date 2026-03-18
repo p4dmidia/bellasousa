@@ -40,8 +40,23 @@ serve(async (req) => {
       }
     });
 
-    // Calculate commission (10% for direct referral)
-    const commission_amount = affiliate_id ? (total_amount * 0.10) : 0;
+    // Fetch Configs for this organization
+    const { data: configData } = await supabase
+      .from('site_configs')
+      .select('*')
+      .eq('organization_id', organization_id)
+      .maybeSingle();
+
+    // Calculate commission (Default 10% if no config found)
+    let commission_amount = 0;
+    if (affiliate_id && items && items.length > 0) {
+      if (configData && configData.level_commissions && configData.level_commissions.length > 0) {
+        const directRate = parseFloat(configData.level_commissions[0]) / 100;
+        commission_amount = total_amount * directRate;
+      } else {
+        commission_amount = total_amount * 0.10; // Fallback to 10%
+      }
+    }
 
     // Save order in Supabase
     const { error: dbError } = await supabase.from('orders').insert({

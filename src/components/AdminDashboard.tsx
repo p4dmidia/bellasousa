@@ -15,7 +15,13 @@ import {
   CheckCircle,
   FileText,
   Loader2,
-  Upload
+  Upload,
+  Trash2,
+  Eye,
+  EyeOff,
+  Edit3,
+  UserX,
+  UserCheck
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import toast, { Toaster } from 'react-hot-toast';
@@ -32,10 +38,12 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
   const [selectedAffiliate, setSelectedAffiliate] = useState<any>(null);
   const [showNewProductModal, setShowNewProductModal] = useState(false);
   const [affiliateSearch, setAffiliateSearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [activeModalTab, setActiveModalTab] = useState<'details' | 'sales' | 'network'>('details');
 
   // Commission Config State
+  const [shopName, setShopName] = useState('Bella Sousa');
   const [commissionType, setCommissionType] = useState<'fixed' | 'percentage'>('percentage');
   const [networkDepth, setNetworkDepth] = useState(5);
   const [levelCommissions, setLevelCommissions] = useState<string[]>(['10', '5', '3', '2', '1']);
@@ -55,6 +63,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
     image_url: '',
     category: 'Lingerie' // Default category
   });
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -81,6 +90,22 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
           .eq('organization_id', ORGANIZATION_ID)
           .order('created_at', { ascending: false });
 
+        // Fetch Configs
+        const { data: configData } = await supabase
+          .from('site_configs')
+          .select('*')
+          .eq('organization_id', ORGANIZATION_ID)
+          .maybeSingle();
+        
+        if (configData) {
+          setShopName(configData.shop_name || 'Bella Sousa');
+          setCommissionType(configData.commission_type || 'percentage');
+          setNetworkDepth(configData.network_depth || 5);
+          if (configData.level_commissions) {
+            setLevelCommissions(configData.level_commissions);
+          }
+        }
+
         setProducts(productsData || []);
         setAffiliates(affiliatesData || []);
         setOrders(ordersData || []);
@@ -93,6 +118,76 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
 
     fetchData();
   }, []);
+
+  const handleDeleteAffiliate = async (affiliateId: string) => {
+    if (!window.confirm("Deseja realmente excluir este afiliado? Esta ação removerá o perfil, mas não o usuário de autenticação.")) return;
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .delete()
+        .eq('id', affiliateId);
+
+      if (error) throw error;
+
+      toast.success("Afiliado excluído com sucesso!");
+      // Refresh list
+      const { data: updatedData } = await supabase.from('user_profiles').select('*').eq('organization_id', ORGANIZATION_ID);
+      setAffiliates(updatedData || []);
+    } catch (err: any) {
+      toast.error("Erro ao excluir afiliado: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleBlockAffiliate = async (affiliate: any) => {
+    const isBlocked = affiliate.status === 'blocked';
+    const newStatus = isBlocked ? 'active' : 'blocked';
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ status: newStatus })
+        .eq('id', affiliate.id);
+
+      if (error) throw error;
+
+      toast.success(`Afiliado ${isBlocked ? 'desbloqueado' : 'bloqueado'} com sucesso!`);
+      // Refresh list
+      const { data: updatedData } = await supabase.from('user_profiles').select('*').eq('organization_id', ORGANIZATION_ID);
+      setAffiliates(updatedData || []);
+    } catch (err: any) {
+      toast.error("Erro ao alterar status: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('site_configs')
+        .upsert({
+          organization_id: ORGANIZATION_ID,
+          shop_name: shopName,
+          commission_type: commissionType,
+          network_depth: networkDepth,
+          level_commissions: levelCommissions,
+          updated_at: new RegExp('utc').test(new Date().toUTCString()) ? new Date().toISOString() : new Date().toISOString() // just ensuring ISO
+        }, { onConflict: 'organization_id' });
+
+      if (error) throw error;
+      toast.success("Configurações salvas com sucesso!");
+    } catch (err: any) {
+      toast.error("Erro ao salvar configurações: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDepthChange = (newDepth: number) => {
     if (newDepth < 1 || newDepth > 10) return;
@@ -135,6 +230,10 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
     (a.login || "").toLowerCase().includes(affiliateSearch.toLowerCase())
   );
 
+  const filteredProducts = products.filter(p => 
+    (p.name || "").toLowerCase().includes(productSearch.toLowerCase())
+  );
+
   const categoryMap: Record<string, number> = {
     'Lingerie': 1,
     'Cosméticos': 2,
@@ -142,7 +241,20 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
     'Acessórios': 4
   };
 
-  const handleCreateProduct = async () => {
+  const handleEditProduct = (product: any) => {
+    setNewProduct({
+      name: product.name || '',
+      price: product.price?.toString() || '',
+      stock: product.stock_quantity?.toString() || '0',
+      description: product.description || '',
+      image_url: product.image_url || '',
+      category: Object.keys(categoryMap).find(key => categoryMap[key] === product.category_id) || 'Lingerie'
+    });
+    setEditingProductId(product.id);
+    setShowNewProductModal(true);
+  };
+
+  const handleSaveProduct = async () => {
     if (!newProduct.name || !newProduct.price) {
       toast.error("Por favor, preencha nome e preço.");
       return;
@@ -178,28 +290,97 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
 
       const categoryId = categoryMap[newProduct.category] || 1;
 
-      const { error } = await supabase.from('products').insert({
-        name: newProduct.name,
-        description: newProduct.description,
-        price: parseFloat(newProduct.price.replace(',', '.')),
-        stock_quantity: parseInt(newProduct.stock) || 0,
-        image_url: finalImageUrl || 'https://images.unsplash.com/photo-1584305574647-0cb93d30b912?w=500&auto=format&fit=crop&q=60',
-        category_id: categoryId,
-        organization_id: ORGANIZATION_ID,
-        is_active: true
-      });
+      if (editingProductId) {
+        // UPDATE
+        const { error } = await supabase.from('products').update({
+          name: newProduct.name,
+          description: newProduct.description,
+          price: parseFloat(newProduct.price.replace(',', '.')),
+          stock_quantity: parseInt(newProduct.stock) || 0,
+          image_url: finalImageUrl,
+          category_id: categoryId,
+        }).eq('id', editingProductId);
 
-      if (error) throw error;
+        if (error) throw error;
+        toast.success("Produto atualizado com sucesso!");
+      } else {
+        // INSERT
+        const { error } = await supabase.from('products').insert({
+          name: newProduct.name,
+          description: newProduct.description,
+          price: parseFloat(newProduct.price.replace(',', '.')),
+          stock_quantity: parseInt(newProduct.stock) || 0,
+          image_url: finalImageUrl || 'https://images.unsplash.com/photo-1584305574647-0cb93d30b912?w=500&auto=format&fit=crop&q=60',
+          category_id: categoryId,
+          organization_id: ORGANIZATION_ID,
+          is_active: true
+        });
+
+        if (error) throw error;
+        toast.success("Produto criado com sucesso!");
+      }
       
-      toast.success("Produto criado com sucesso!");
       setShowNewProductModal(false);
+      setEditingProductId(null);
       setNewProduct({ name: '', price: '', stock: '', description: '', image_url: '', category: 'Lingerie' });
       setSelectedImageFile(null);
       // Refresh list
       const { data: updatedData } = await supabase.from('products').select('*').eq('organization_id', ORGANIZATION_ID).order('created_at', { ascending: false });
       setProducts(updatedData || []);
     } catch (err: any) {
-      toast.error("Erro ao criar produto: " + err.message);
+      toast.error("Erro ao salvar produto: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    if (!window.confirm("Certeza que deseja excluir este produto? Esta ação não pode ser desfeita.")) return;
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productId);
+
+      if (error) throw error;
+
+      toast.success("Produto excluído com sucesso!");
+      // Refresh list
+      const { data: updatedData } = await supabase
+        .from('products')
+        .select('*')
+        .eq('organization_id', ORGANIZATION_ID)
+        .order('created_at', { ascending: false });
+      setProducts(updatedData || []);
+    } catch (err: any) {
+      toast.error("Erro ao excluir produto: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleVisibility = async (product: any) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ is_active: !product.is_active })
+        .eq('id', product.id);
+
+      if (error) throw error;
+
+      toast.success(`Produto ${!product.is_active ? 'ativado' : 'ocultado'} com sucesso!`);
+      // Refresh list
+      const { data: updatedData } = await supabase
+        .from('products')
+        .select('*')
+        .eq('organization_id', ORGANIZATION_ID)
+        .order('created_at', { ascending: false });
+      setProducts(updatedData || []);
+    } catch (err: any) {
+      toast.error("Erro ao atualizar visibilidade: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -374,14 +555,21 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
               >
                 <div className="flex justify-between items-center">
                    <div className="relative">
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                       <input 
                         type="text" 
-                        placeholder="Buscar produto..." 
-                        className="bg-[#1a1414] border border-accent/10 text-white placeholder-slate-500 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-accent w-64"
+                        placeholder="Buscar produto pelo nome..." 
+                        value={productSearch}
+                        onChange={(e) => setProductSearch(e.target.value)}
+                        className="bg-[#1a1414] border border-accent/10 text-white placeholder-slate-500 rounded-xl pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-accent w-64"
                       />
                    </div>
                    <button 
-                     onClick={() => setShowNewProductModal(true)}
+                     onClick={() => {
+                        setEditingProductId(null);
+                        setNewProduct({ name: '', price: '', stock: '', description: '', image_url: '', category: 'Lingerie' });
+                        setShowNewProductModal(true);
+                      }}
                      className="flex items-center gap-2 bg-accent text-primary px-4 py-2 rounded-xl text-sm font-bold hover:bg-accent/90 transition-colors"
                    >
                      <Plus className="w-4 h-4" /> Novo Produto
@@ -400,7 +588,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                      {products.map((p) => (
+                      {filteredProducts.map((p) => (
                         <tr key={p.id} className="hover:bg-white/5 transition-colors">
                           <td className="p-4 text-sm text-white">{p.name}</td>
                           <td className="p-4 text-sm text-slate-400">{p.stock_quantity} un.</td>
@@ -412,7 +600,31 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                               {p.is_active ? 'Ativo' : 'Inativo'}
                             </span>
                           </td>
-                          <td className="p-4 text-sm text-accent hover:text-white cursor-pointer transition-colors">Editar</td>
+                          <td className="p-4">
+                            <div className="flex gap-3">
+                              <button 
+                                onClick={() => handleEditProduct(p)}
+                                className="text-accent hover:text-white transition-colors"
+                                title="Editar"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button 
+                                onClick={() => handleToggleVisibility(p)}
+                                className={`${p.is_active ? 'text-slate-400 hover:text-white' : 'text-yellow-500 hover:text-yellow-400'} transition-colors`}
+                                title={p.is_active ? "Ocultar da Loja" : "Mostrar na Loja"}
+                              >
+                                {p.is_active ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteProduct(p.id)}
+                                className="text-red-400 hover:text-red-300 transition-colors"
+                                title="Excluir Produto"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -481,7 +693,12 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                         <tr key={a.id} className="hover:bg-white/5 transition-colors">
                           <td className="p-4 text-sm text-white">
                             <div className="flex flex-col">
-                              <span className="font-medium text-white">{a.email?.split('@')[0] || 'Afiliado'}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-white">{a.email?.split('@')[0] || 'Afiliado'}</span>
+                                {a.status === 'blocked' && (
+                                  <span className="text-[9px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest">Bloqueado</span>
+                                )}
+                              </div>
                               <span className="text-[10px] text-slate-500 uppercase tracking-tighter">ID: #{a.id.substring(0, 8)}</span>
                             </div>
                           </td>
@@ -498,6 +715,23 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                              >
                                <FileText className="w-4 h-4" /> Gerenciar
                              </button>
+                             
+                             <button 
+                               onClick={() => handleToggleBlockAffiliate(a)}
+                               className={`${a.status === 'blocked' ? 'text-green-400 hover:text-green-300' : 'text-yellow-500 hover:text-yellow-400'} transition-colors`}
+                               title={a.status === 'blocked' ? "Desbloquear Afiliado" : "Bloquear Afiliado"}
+                             >
+                               {a.status === 'blocked' ? <UserCheck className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
+                             </button>
+
+                             <button 
+                               onClick={() => handleDeleteAffiliate(a.id)}
+                               className="text-red-400 hover:text-red-300 transition-colors"
+                               title="Excluir Afiliado"
+                             >
+                               <Trash2 className="w-4 h-4" />
+                             </button>
+
                              {a.status === 'pending' && <span className="text-green-400 hover:text-white cursor-pointer transition-colors">Aprovar</span>}
                           </td>
                         </tr>
@@ -522,7 +756,12 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                      <div>
                        <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">Nome da Loja</label>
-                       <input type="text" defaultValue="Bella Sousa" className="w-full bg-[#130d0d] border border-white/10 rounded-xl p-3 text-white focus:border-accent outline-none" />
+                       <input 
+                         type="text" 
+                         value={shopName}
+                         onChange={(e) => setShopName(e.target.value)}
+                         className="w-full bg-[#130d0d] border border-white/10 rounded-xl p-3 text-white focus:border-accent outline-none" 
+                       />
                      </div>
                      <div>
                        <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">Tipo de Comissionamento</label>
@@ -575,8 +814,12 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                    </div>
 
                    <div className="pt-4">
-                     <button className="w-full md:w-auto bg-accent text-primary px-8 py-4 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-all shadow-lg shadow-accent/20">
-                       Salvar Regras de Comissionamento
+                     <button 
+                       onClick={handleSaveSettings}
+                       disabled={loading}
+                       className="w-full md:w-auto bg-accent text-primary px-8 py-4 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-2"
+                     >
+                       {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salvar Regras de Comissionamento'}
                      </button>
                    </div>
                  </div>
@@ -603,15 +846,22 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
               className="bg-[#1a1414] border border-accent/20 rounded-3xl p-8 max-w-2xl w-full relative max-h-[90vh] overflow-y-auto"
             >
               <button 
-                onClick={() => setShowNewProductModal(false)}
+                onClick={() => {
+                  setShowNewProductModal(false);
+                  setEditingProductId(null);
+                }}
                 className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors"
               >
                 <X className="w-6 h-6" />
               </button>
 
               <div className="mb-8">
-                <h3 className="text-2xl font-serif text-white mb-2">Novo Produto</h3>
-                <p className="text-slate-400 text-sm">Preencha os detalhes para cadastrar na boutique.</p>
+                <h3 className="text-2xl font-serif text-white mb-2">
+                  {editingProductId ? 'Editar Produto' : 'Novo Produto'}
+                </h3>
+                <p className="text-slate-400 text-sm">
+                  {editingProductId ? 'Atualize os detalhes do produto cadastrado.' : 'Preencha os detalhes para cadastrar na boutique.'}
+                </p>
               </div>
 
               <div className="space-y-6">
@@ -671,14 +921,13 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                         <Upload className="w-4 h-4 text-accent group-hover:scale-110 transition-transform" />
                         <input 
                           type="file" 
-                          accept="image/*"
                           className="hidden" 
-                          onChange={(e) => {
-                             if(e.target.files && e.target.files[0]) {
-                                 setSelectedImageFile(e.target.files[0]);
-                                 // Clear URL if file is selected to avoid confusion
-                                 setNewProduct({...newProduct, image_url: ''});
-                             }
+                          accept="image/*"
+                          onChange={e => {
+                            if (e.target.files && e.target.files[0]) {
+                              setSelectedImageFile(e.target.files[0]);
+                              setNewProduct({...newProduct, image_url: ''}); // Clear URL if file selected
+                            }
                           }}
                         />
                       </label>
@@ -711,12 +960,13 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                 </div>
 
                 <button 
-                  onClick={handleCreateProduct}
+                  onClick={handleSaveProduct}
                   disabled={loading}
                   className="w-full bg-accent text-primary py-4 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-all flex items-center justify-center gap-2 group"
                 >
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>
-                    <Plus className="w-4 h-4" /> Cadastrar Produto Real
+                    {editingProductId ? <CheckCircle className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                    {editingProductId ? 'Salvar Alterações' : 'Cadastrar Produto Real'}
                   </>}
                 </button>
               </div>
