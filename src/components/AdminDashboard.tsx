@@ -34,10 +34,13 @@ interface AdminDashboardProps {
 }
 
 export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'affiliates' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'affiliates' | 'settings' | 'orders'>('overview');
   const [selectedAffiliate, setSelectedAffiliate] = useState<any>(null);
   const [showNewProductModal, setShowNewProductModal] = useState(false);
   const [affiliateSearch, setAffiliateSearch] = useState("");
+  const [orderSearch, setOrderSearch] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [showOrderModal, setShowOrderModal] = useState(false);
   const [productSearch, setProductSearch] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [activeModalTab, setActiveModalTab] = useState<'details' | 'sales' | 'network'>('details');
@@ -47,6 +50,12 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
   const [commissionType, setCommissionType] = useState<'fixed' | 'percentage'>('percentage');
   const [networkDepth, setNetworkDepth] = useState(5);
   const [levelCommissions, setLevelCommissions] = useState<string[]>(['10', '5', '3', '2', '1']);
+  const [leadershipBonusConfig, setLeadershipBonusConfig] = useState<any[]>([
+    { name: 'Bronze', threshold: 500, percentage: 1 },
+    { name: 'Prata', threshold: 1000, percentage: 1 },
+    { name: 'Ouro', threshold: 2500, percentage: 1 },
+    { name: 'Diamante', threshold: 5000, percentage: 1 }
+  ]);
 
   // Real Data State
   const [products, setProducts] = useState<any[]>([]);
@@ -103,6 +112,9 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
           setNetworkDepth(configData.network_depth || 5);
           if (configData.level_commissions) {
             setLevelCommissions(configData.level_commissions);
+          }
+          if (configData.leadership_bonus_config) {
+            setLeadershipBonusConfig(configData.leadership_bonus_config);
           }
         }
 
@@ -177,15 +189,35 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
           commission_type: commissionType,
           network_depth: networkDepth,
           level_commissions: levelCommissions,
-          updated_at: new RegExp('utc').test(new Date().toUTCString()) ? new Date().toISOString() : new Date().toISOString() // just ensuring ISO
+          leadership_bonus_config: leadershipBonusConfig,
+          updated_at: new Date().toISOString()
         }, { onConflict: 'organization_id' });
 
       if (error) throw error;
-      toast.success("Configurações salvas com sucesso!");
-    } catch (err: any) {
-      toast.error("Erro ao salvar configurações: " + err.message);
+      toast.success('Configurações salvas com sucesso!');
+    } catch (error: any) {
+      toast.error(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateOrderStatus = async (orderId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: newStatus })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+      toast.success(`Status do pedido atualizado para ${newStatus}`);
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder({ ...selectedOrder, status: newStatus });
+      }
+    } catch (error: any) {
+      toast.error(error.message);
     }
   };
 
@@ -426,6 +458,14 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
             <Users className="w-5 h-5" />
             Afiliados & Rede
           </button>
+
+            <button 
+              onClick={() => setActiveTab('orders')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'orders' ? 'bg-accent text-primary font-bold shadow-lg shadow-accent/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+            >
+              <ShoppingCart className={`w-5 h-5 ${activeTab === 'orders' ? 'animate-pulse' : ''}`} />
+              <span className="text-xs uppercase tracking-widest">Pedidos</span>
+            </button>
 
           <button
             onClick={() => setActiveTab('settings')}
@@ -682,8 +722,8 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                     <thead className="bg-[#130d0d] border-b border-accent/10">
                       <tr>
                         <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Consultora</th>
-                        <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Nível</th>
-                        <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Ganhos Totais</th>
+                        <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Patente</th>
+                        <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Faturamento</th>
                         <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Saldo</th>
                         <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Ações</th>
                       </tr>
@@ -702,9 +742,9 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                               <span className="text-[10px] text-slate-500 uppercase tracking-tighter">ID: #{a.id.substring(0, 8)}</span>
                             </div>
                           </td>
-                          <td className="p-4 text-sm text-accent">{a.role}</td>
-                          <td className="p-4 text-sm text-white">R$ {a.total_earnings?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                          <td className="p-4 text-sm font-bold text-accent">R$ {a.balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          <td className="p-4 text-sm text-accent font-bold">{a.rank || 'Consultor'}</td>
+                          <td className="p-4 text-sm text-white">R$ {(a.total_sales || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          <td className="p-4 text-sm font-bold text-green-400">R$ {a.balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                           <td className="p-4 text-sm flex gap-3">
                              <button 
                                className="text-accent hover:text-white cursor-pointer transition-colors flex items-center gap-1"
@@ -812,17 +852,178 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                        ))}
                      </div>
                    </div>
-
-                   <div className="pt-4">
-                     <button 
-                       onClick={handleSaveSettings}
-                       disabled={loading}
-                       className="w-full md:w-auto bg-accent text-primary px-8 py-4 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-2"
-                     >
-                       {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salvar Regras de Comissionamento'}
-                     </button>
-                   </div>
                  </div>
+
+                {/* Leadership Bonus Config */}
+                <div className="bg-[#1a1414] border border-accent/10 rounded-3xl p-6 space-y-6">
+                  <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                    <h3 className="text-lg font-serif text-white">Configuração de Patentes (Bônus de Liderança)</h3>
+                    <button 
+                      onClick={() => setLeadershipBonusConfig([...leadershipBonusConfig, { name: 'Nova Patente', threshold: 0, percentage: 1 }])}
+                      className="text-accent hover:text-white transition-colors flex items-center gap-1 text-xs font-bold uppercase tracking-widest"
+                    >
+                      <Plus className="w-4 h-4" /> Adicionar Nível
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <p className="text-sm text-slate-400">Defina o faturamento necessário e o percentual de bônus extra para cada patente.</p>
+                    
+                    <div className="grid grid-cols-1 gap-4">
+                      {leadershipBonusConfig.map((item, idx) => (
+                        <div key={idx} className="bg-[#130d0d] border border-white/5 p-4 rounded-2xl flex flex-wrap items-center gap-4">
+                          <div className="flex-1 min-w-[200px]">
+                            <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 block mb-1">Nome da Patente</label>
+                            <input 
+                              type="text" 
+                              value={item.name}
+                              onChange={(e) => {
+                                const newConfig = [...leadershipBonusConfig];
+                                newConfig[idx].name = e.target.value;
+                                setLeadershipBonusConfig(newConfig);
+                              }}
+                              className="w-full bg-transparent border-b border-white/10 text-white focus:border-accent outline-none font-medium text-sm" 
+                            />
+                          </div>
+                          
+                          <div className="w-32">
+                            <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 block mb-1">Faturamento (R$)</label>
+                            <input 
+                              type="number" 
+                              value={item.threshold}
+                              onChange={(e) => {
+                                const newConfig = [...leadershipBonusConfig];
+                                newConfig[idx].threshold = parseFloat(e.target.value) || 0;
+                                setLeadershipBonusConfig(newConfig);
+                              }}
+                              className="w-full bg-transparent border-b border-white/10 text-white focus:border-accent outline-none font-medium text-sm" 
+                            />
+                          </div>
+                          
+                          <div className="w-24">
+                            <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 block mb-1">Bônus (%)</label>
+                            <div className="flex items-center gap-1">
+                              <input 
+                                type="number" 
+                                value={item.percentage}
+                                onChange={(e) => {
+                                  const newConfig = [...leadershipBonusConfig];
+                                  newConfig[idx].percentage = parseFloat(e.target.value) || 0;
+                                  setLeadershipBonusConfig(newConfig);
+                                }}
+                                className="w-full bg-transparent border-b border-white/10 text-white focus:border-accent outline-none font-medium text-sm text-right" 
+                              />
+                              <span className="text-slate-500">%</span>
+                            </div>
+                          </div>
+                          
+                          <button 
+                            onClick={() => setLeadershipBonusConfig(leadershipBonusConfig.filter((_, i) => i !== idx))}
+                            className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  <button 
+                    onClick={handleSaveSettings}
+                    disabled={loading}
+                    className="w-full md:w-auto bg-accent text-primary px-8 py-4 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-2"
+                  >
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salvar Todas as Configurações'}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'orders' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-8"
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div>
+                    <h2 className="text-3xl font-serif text-white mb-2">Pedidos da Loja</h2>
+                    <p className="text-slate-400 text-sm italic">Gerencie todas as vendas e o status de entrega.</p>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="relative group">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-accent transition-colors" />
+                      <input 
+                        type="text" 
+                        placeholder="Buscar por ID ou Email..." 
+                        value={orderSearch}
+                        onChange={(e) => setOrderSearch(e.target.value)}
+                        className="bg-[#1a1414] border border-white/10 rounded-xl py-3 pl-12 pr-6 text-sm text-white focus:border-accent outline-none w-full md:w-80 transition-all font-medium" 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-[#1a1414] border border-accent/10 rounded-[40px] overflow-hidden shadow-2xl">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="bg-[#130d0d] border-b border-accent/10">
+                        <tr>
+                          <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">ID Pedido</th>
+                          <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Cliente</th>
+                          <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Valor Total</th>
+                          <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Status</th>
+                          <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500 text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {orders.filter(o => 
+                          o.id.toLowerCase().includes(orderSearch.toLowerCase()) || 
+                          o.email?.toLowerCase().includes(orderSearch.toLowerCase()) ||
+                          o.payment_id?.toString().includes(orderSearch)
+                        ).map((order) => (
+                          <tr key={order.id} className="hover:bg-white/5 transition-colors group">
+                            <td className="p-4">
+                              <span className="text-sm font-bold text-white">#{order.payment_id || order.id.substring(0, 8)}</span>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex flex-col">
+                                <span className="text-sm text-white">{order.email?.split('@')[0] || 'Cliente'}</span>
+                                <span className="text-[10px] text-slate-500">{order.email}</span>
+                              </div>
+                            </td>
+                            <td className="p-4 text-sm font-bold text-accent">
+                               R$ {order.total_amount?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-4">
+                              <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${
+                                order.status === 'completed' ? 'bg-green-500/10 text-green-400' :
+                                order.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' :
+                                'bg-red-500/10 text-red-400'
+                              }`}>
+                                {order.status === 'completed' ? 'Concluído' : 
+                                 order.status === 'pending' ? 'Pendente' : 'Cancelado'}
+                              </span>
+                            </td>
+                            <td className="p-4 text-right">
+                              <button 
+                                onClick={() => {
+                                  setSelectedOrder(order);
+                                  setShowOrderModal(true);
+                                }}
+                                className="bg-accent/10 text-accent hover:bg-accent hover:text-primary px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all"
+                              >
+                                Ver Detalhes
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </motion.div>
             )}
 
@@ -975,6 +1176,111 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
         )}
       </AnimatePresence>
 
+      {/* Order Detail Modal */}
+      <AnimatePresence>
+        {showOrderModal && selectedOrder && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[#1a1414] border border-accent/20 rounded-3xl p-8 max-w-2xl w-full relative max-h-[90vh] overflow-y-auto"
+            >
+              <button 
+                onClick={() => setShowOrderModal(false)}
+                className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+
+              <div className="mb-8">
+                <div className="flex items-center gap-3 mb-2">
+                   <h3 className="text-2xl font-serif text-white">Pedido #{selectedOrder.payment_id || selectedOrder.id.substring(0, 8)}</h3>
+                   <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${
+                      selectedOrder.status === 'completed' ? 'bg-green-500/10 text-green-400' :
+                      selectedOrder.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' :
+                      'bg-red-500/10 text-red-400'
+                    }`}>
+                      {selectedOrder.status}
+                    </span>
+                </div>
+                <p className="text-slate-400 text-sm">Realizado em {new Date(selectedOrder.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+              </div>
+
+              <div className="space-y-6">
+                <div className="bg-[#130d0d] p-6 rounded-2xl border border-white/5 space-y-4">
+                   <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 border-b border-white/5 pb-2">Cliente</h4>
+                   <div className="flex justify-between items-center">
+                      <span className="text-sm text-white">{selectedOrder.nome || 'Cliente'}</span>
+                      <span className="text-xs text-slate-400">{selectedOrder.email}</span>
+                   </div>
+                   {selectedOrder.whatsapp && (
+                     <div className="flex justify-between items-center">
+                        <span className="text-xs text-slate-500 uppercase font-bold tracking-tighter">WhatsApp</span>
+                        <span className="text-xs text-white">{selectedOrder.whatsapp}</span>
+                     </div>
+                   )}
+                </div>
+
+                <div className="bg-[#130d0d] p-6 rounded-2xl border border-white/5 space-y-4">
+                   <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 border-b border-white/5 pb-2">Itens do Pedido</h4>
+                   <div className="space-y-2">
+                      {selectedOrder.items?.map((item: any, i: number) => (
+                        <div key={i} className="flex justify-between text-sm">
+                           <span className="text-white">{item.quantity}x {item.title || item.name}</span>
+                           <span className="text-accent">R$ {(item.unit_price * item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      ))}
+                      {!selectedOrder.items && (
+                        <p className="text-xs text-slate-500 italic">Detalhes dos itens não disponíveis.</p>
+                      )}
+                   </div>
+                   <div className="pt-2 border-t border-white/5 flex justify-between font-serif text-lg">
+                      <span className="text-white">Total</span>
+                      <span className="text-accent font-bold">R$ {selectedOrder.total_amount?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                   </div>
+                </div>
+
+                <div className="bg-[#130d0d] p-6 rounded-2xl border border-white/5 space-y-4">
+                   <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 border-b border-white/5 pb-2">Status do Pedido</h4>
+                   <div className="flex flex-wrap gap-2">
+                      <button 
+                        onClick={() => handleUpdateOrderStatus(selectedOrder.id, 'completed')}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${
+                          selectedOrder.status === 'completed' ? 'bg-green-500 text-white cursor-default' : 'bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-white'
+                        }`}
+                      >
+                        Marcar como Concluído
+                      </button>
+                      <button 
+                        onClick={() => handleUpdateOrderStatus(selectedOrder.id, 'pending')}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${
+                          selectedOrder.status === 'pending' ? 'bg-yellow-500 text-primary cursor-default' : 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500 hover:text-white'
+                        }`}
+                      >
+                        Marcar como Pendente
+                      </button>
+                      <button 
+                        onClick={() => handleUpdateOrderStatus(selectedOrder.id, 'canceled')}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${
+                          selectedOrder.status === 'canceled' ? 'bg-red-500 text-white cursor-default' : 'bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white'
+                        }`}
+                      >
+                        Cancelar Pedido
+                      </button>
+                   </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Detailed Affiliate Modal */}
       <AnimatePresence>
         {selectedAffiliate && (
@@ -1001,7 +1307,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                 <div>
                   <div className="flex items-center gap-4 mb-2">
                     <h3 className="text-2xl font-serif text-white">{selectedAffiliate.login || selectedAffiliate.email?.split('@')[0] || 'Afiliado'}</h3>
-                    <span className="text-[10px] bg-accent/20 text-accent px-2 py-1 rounded font-bold uppercase tracking-widest">{selectedAffiliate.role}</span>
+                    <span className="text-[10px] bg-accent/20 text-accent px-2 py-1 rounded font-bold uppercase tracking-widest">{selectedAffiliate.rank || 'Consultor'}</span>
                   </div>
                   <p className="text-slate-400 text-sm">{selectedAffiliate.email}</p>
                 </div>
@@ -1042,8 +1348,12 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                         <p className="text-2xl font-serif text-white">R$ {(selectedAffiliate.total_earnings || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                       </div>
                       <div className="bg-[#130d0d] p-6 rounded-2xl border border-white/5">
-                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Total de Vendas</p>
-                        <p className="text-2xl font-serif text-white">{orders.filter(o => o.referrer_id === selectedAffiliate.id).length}</p>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Faturamento Total</p>
+                        <p className="text-2xl font-serif text-white">R$ {(selectedAffiliate.total_sales || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                      </div>
+                      <div className="bg-[#130d0d] p-6 rounded-2xl border border-white/5">
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Bônus de Liderança</p>
+                        <p className="text-2xl font-serif text-green-400">R$ {(selectedAffiliate.leadership_bonus_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                       </div>
                     </div>
 

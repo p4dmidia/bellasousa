@@ -29,7 +29,8 @@ import {
   UserCog,
   Upload,
   Menu,
-  X
+  X,
+  Zap
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { supabase, ORGANIZATION_ID } from '../lib/supabase';
@@ -116,11 +117,15 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
 
   const [myOrders, setMyOrders] = useState<any[]>([]);
   const [myNetwork, setMyNetwork] = useState<any[]>([]);
+  const [leadershipConfig, setLeadershipConfig] = useState<any[]>([
+    { name: 'Bronze', threshold: 500, percentage: 1 },
+    { name: 'Prata', threshold: 1000, percentage: 1 },
+    { name: 'Ouro', threshold: 2500, percentage: 1 },
+    { name: 'Diamante', threshold: 5000, percentage: 1 }
+  ]);
   const [stats, setStats] = useState([
-    { label: 'Saldo Disponível', value: 'R$ 0,00', icon: <Wallet className="w-5 h-5" />, trend: 'Saldo', color: 'bg-green-500' },
-    { label: 'Pontos de Equipe (Mês)', value: '0 pts', icon: <Target className="w-5 h-5" />, trend: 'Mensal', color: 'bg-accent' },
-    { label: 'Consultoras Diretas', value: '0', icon: <Users className="w-5 h-5" />, trend: 'Rede', color: 'bg-blue-500' },
-    { label: 'Nível Atual', value: 'Consultora', icon: <Award className="w-5 h-5" />, trend: 'Nível', color: 'bg-purple-500' },
+    { label: 'Nível Atual', value: 'Consultor', icon: <Award className="w-5 h-5" />, trend: 'Nível', color: 'bg-purple-500' },
+    { label: 'Total de Vendas', value: 'R$ 0,00', icon: <Zap className="w-5 h-5" />, trend: 'Ranking', color: 'bg-orange-500' },
   ]);
 
   const fetchDashboardData = async () => {
@@ -144,6 +149,18 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
       if (profileData) {
         setProfile(profileData);
         
+        // Fetch Leadership Config
+        const { data: configData } = await supabase
+          .from('site_configs')
+          .select('leadership_bonus_config')
+          .eq('organization_id', ORGANIZATION_ID)
+          .maybeSingle();
+
+        if (configData?.leadership_bonus_config) {
+          setLeadershipConfig(configData.leadership_bonus_config);
+        }
+        
+        const balanceValue = profileData.balance || 0;
         // Use the profile's own organization_id (robust multi-tenancy)
         const userOrgId = profileData.organization_id || ORGANIZATION_ID;
 
@@ -231,14 +248,13 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         setMyOrders(myCommOrders);
 
         // Balance is missing from table based on schema investigation
-        const balanceValue = profileData.balance || 0;
         const totalPoints = 0;
         
         setStats([
           { label: 'Saldo Disponível', value: `R$ ${balanceValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Wallet className="w-5 h-5" />, trend: 'Disponível', color: 'bg-green-500' },
-          { label: 'Pontos de Equipe (Mês)', value: `${totalPoints} pts`, icon: <Target className="w-5 h-5" />, trend: 'Mensal', color: 'bg-accent' },
           { label: 'Consultoras Diretas', value: network.length.toString(), icon: <Users className="w-5 h-5" />, trend: 'Rede', color: 'bg-blue-500' },
-          { label: 'Nível Atual', value: profileData.role === 'affiliate' ? 'Consultor' : (profileData.role || 'Consultora'), icon: <Award className="w-5 h-5" />, trend: 'Nível', color: 'bg-purple-500' },
+          { label: 'Nível Atual', value: profileData.rank || 'Consultor', icon: <Award className="w-5 h-5" />, trend: 'Nível', color: 'bg-purple-500' },
+          { label: 'Total de Vendas', value: `R$ ${(profileData.total_sales || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Zap className="w-5 h-5" />, trend: 'Faturamento', color: 'bg-orange-500' },
         ]);
       }
       
@@ -374,7 +390,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
           <h2 className="font-serif italic text-xl text-center">
               {profile?.full_name || currentUser?.user_metadata?.nome || currentUser?.user_metadata?.full_name?.split(' ')[0] || 'Consultora'}
           </h2>
-          <span className="text-[10px] uppercase tracking-widest text-accent font-bold">{profile?.role === 'affiliate' ? 'Consultor' : (profile?.role || 'Prata')}</span>
+          <span className="text-[10px] uppercase tracking-widest text-accent font-bold">{profile?.rank || 'Consultor'}</span>
         </div>
 
         <nav className="flex-1 py-6 px-4 space-y-2">
@@ -544,6 +560,56 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                     <p className="text-2xl font-serif">{stat.value}</p>
                   </div>
                 ))}
+              </div>
+
+              {/* Rank Progress Bar */}
+              <div className="bg-[#1a1414] border border-accent/10 p-8 rounded-[40px] shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h3 className="font-serif text-2xl italic">Evolução de Carreira</h3>
+                    <p className="text-slate-500 text-[10px] uppercase tracking-widest font-bold">Próxima meta de faturamento</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-accent text-sm font-bold uppercase tracking-widest">
+                      {(() => {
+                        const sortedConfig = [...leadershipConfig].sort((a, b) => a.threshold - b.threshold);
+                        const nextRank = sortedConfig.find(c => (profile?.total_sales || 0) < c.threshold);
+                        return nextRank ? `Próximo Nível: ${nextRank.name}` : 'Nível Máximo';
+                      })()}
+                    </p>
+                  </div>
+                </div>
+                
+                {(() => {
+                  const sortedConfig = [...leadershipConfig].sort((a, b) => a.threshold - b.threshold);
+                  const nextRank = sortedConfig.find(c => (profile?.total_sales || 0) < c.threshold);
+                  
+                  if (!nextRank) return null;
+
+                  const currentSales = profile?.total_sales || 0;
+                  const threshold = nextRank.threshold;
+                  const progress = Math.min(100, (currentSales / threshold) * 100);
+                  const remaining = threshold - currentSales;
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex justify-between text-xs font-bold uppercase tracking-tighter text-slate-400">
+                        <span>R$ {currentSales.toLocaleString('pt-BR')}</span>
+                        <span>R$ {threshold.toLocaleString('pt-BR')}</span>
+                      </div>
+                      <div className="h-4 bg-white/5 rounded-full overflow-hidden p-1 border border-white/5">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${progress}%` }}
+                          className="h-full bg-gradient-to-r from-accent to-[#D4A373] rounded-full shadow-[0_0_20px_rgba(212,163,115,0.3)]"
+                        />
+                      </div>
+                      <p className="text-[10px] text-slate-500 italic text-center">
+                        Faltam R$ {remaining.toLocaleString('pt-BR')} para o nível {nextRank.name}!
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
