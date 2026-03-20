@@ -132,26 +132,42 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
   }, []);
 
   const handleDeleteAffiliate = async (affiliateId: string) => {
-    if (!window.confirm("Deseja realmente excluir este afiliado? Esta ação removerá o perfil, mas não o usuário de autenticação.")) return;
-    
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('user_profiles')
-        .delete()
-        .eq('id', affiliateId);
+    toast((t) => (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm font-medium">Deseja realmente excluir este afiliado? Esta ação removerá o perfil, mas não o usuário de autenticação.</p>
+        <div className="flex justify-end gap-2">
+          <button 
+            className="px-3 py-1.5 text-xs bg-slate-800 text-white rounded-lg hover:bg-slate-700"
+            onClick={() => toast.dismiss(t.id)}>Cancelar</button>
+          <button 
+            className="px-3 py-1.5 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600"
+            onClick={async () => {
+              toast.dismiss(t.id);
+              setLoading(true);
+              try {
+                const { data, error } = await supabase
+                  .from('user_profiles')
+                  .delete()
+                  .eq('id', affiliateId)
+                  .select();
 
-      if (error) throw error;
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                  throw new Error("Afiliado não foi excluído. Verifique políticas de banco de dados ou dependências.");
+                }
 
-      toast.success("Afiliado excluído com sucesso!");
-      // Refresh list
-      const { data: updatedData } = await supabase.from('user_profiles').select('*').eq('organization_id', ORGANIZATION_ID);
-      setAffiliates(updatedData || []);
-    } catch (err: any) {
-      toast.error("Erro ao excluir afiliado: " + err.message);
-    } finally {
-      setLoading(false);
-    }
+                toast.success("Afiliado excluído com sucesso!");
+                const { data: updatedData } = await supabase.from('user_profiles').select('*').eq('organization_id', ORGANIZATION_ID);
+                setAffiliates(updatedData || []);
+              } catch (err: any) {
+                toast.error("Erro ao excluir afiliado: " + err.message);
+              } finally {
+                setLoading(false);
+              }
+            }}>Excluir</button>
+        </div>
+      </div>
+    ), { duration: Infinity, style: { background: '#1a1414', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' } });
   };
 
   const handleToggleBlockAffiliate = async (affiliate: any) => {
@@ -367,30 +383,46 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    if (!window.confirm("Certeza que deseja excluir este produto? Esta ação não pode ser desfeita.")) return;
-    
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', productId);
+    toast((t) => (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm font-medium">Certeza que deseja excluir este produto? Esta ação não pode ser desfeita.</p>
+        <div className="flex justify-end gap-2">
+          <button 
+            className="px-3 py-1.5 text-xs bg-slate-800 text-white rounded-lg hover:bg-slate-700"
+            onClick={() => toast.dismiss(t.id)}>Cancelar</button>
+          <button 
+            className="px-3 py-1.5 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600"
+            onClick={async () => {
+              toast.dismiss(t.id);
+              setLoading(true);
+              try {
+                const { data, error } = await supabase
+                  .from('products')
+                  .delete()
+                  .eq('id', productId)
+                  .select();
 
-      if (error) throw error;
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                  throw new Error("Produto não excluiu. RLS bloqueado ou erro de banco de dados.");
+                }
 
-      toast.success("Produto excluído com sucesso!");
-      // Refresh list
-      const { data: updatedData } = await supabase
-        .from('products')
-        .select('*')
-        .eq('organization_id', ORGANIZATION_ID)
-        .order('created_at', { ascending: false });
-      setProducts(updatedData || []);
-    } catch (err: any) {
-      toast.error("Erro ao excluir produto: " + err.message);
-    } finally {
-      setLoading(false);
-    }
+                toast.success("Produto excluído com sucesso!");
+                const { data: updatedData } = await supabase
+                  .from('products')
+                  .select('*')
+                  .eq('organization_id', ORGANIZATION_ID)
+                  .order('created_at', { ascending: false });
+                setProducts(updatedData || []);
+              } catch (err: any) {
+                toast.error("Erro ao excluir produto: " + err.message);
+              } finally {
+                setLoading(false);
+              }
+            }}>Excluir</button>
+        </div>
+      </div>
+    ), { duration: Infinity, style: { background: '#1a1414', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' } });
   };
 
   const handleToggleVisibility = async (product: any) => {
@@ -1365,7 +1397,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                       <button 
                         onClick={() => {
                           const affiliateName = selectedAffiliate.login || selectedAffiliate.email?.split('@')[0] || 'Afiliado';
-                          alert(`Pagamento de R$ ${selectedAffiliate.balance || 0} confirmado para ${affiliateName}!`);
+                          toast.success(`Pagamento de R$ ${selectedAffiliate.balance || 0} confirmado para ${affiliateName}!`);
                           setSelectedAffiliate(null);
                         }}
                         className="bg-accent text-primary px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-[10px] hover:bg-accent/90 transition-all flex items-center gap-2"

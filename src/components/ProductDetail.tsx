@@ -47,7 +47,7 @@ export default function ProductDetail({ product, onBack, onAddToCart }: { produc
             <div className="col-span-2 aspect-[4/5] rounded-xl overflow-hidden bg-primary/10">
               <img
                 className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
-                src={product.image_url}
+                src={product.image_url || product.image}
                 alt={product.name}
                 referrerPolicy="no-referrer"
               />
@@ -62,7 +62,7 @@ export default function ProductDetail({ product, onBack, onAddToCart }: { produc
                 <span className="text-accent text-xs font-bold uppercase tracking-widest">{product.category || 'Destaque'}</span>
               </div>
               <h1 className="text-4xl lg:text-5xl mb-4 text-slate-100 font-serif">{product.name}</h1>
-              <p className="text-2xl text-slate-300 mb-8">R$ {product.price.toFixed(2)}</p>
+              <p className="text-2xl text-slate-300 mb-8">R$ {Number(product.price || 0).toFixed(2)}</p>
 
               <div className="space-y-8">
                 <div>

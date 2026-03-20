@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import { motion } from 'motion/react';
 import { Mail, Lock, ArrowRight, ShieldCheck, ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { supabase, ORGANIZATION_ID } from '../lib/supabase';
@@ -43,7 +44,7 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
                          // If profile exists but role is wrong
                          if (profile && profile.role !== 'admin') {
                             await supabase.auth.signOut();
-                            alert("DEBUG 1: Este usuário existe mas tem o cargo '" + profile.role + "' e não 'admin'.");
+                            toast.error("Este usuário existe mas tem o cargo '" + profile.role + "' e não 'admin'.");
                             setLoading(false);
                             return;
                          }
@@ -51,7 +52,7 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
                     
                     if (profileError || !profile) {
                         await supabase.auth.signOut();
-                        alert("DEBUG 2: Perfil não encontrado ou erro de permissão (406). Verifique as políticas de RLS ou se o INSERT foi feito.");
+                        toast.error("Perfil não encontrado ou erro de permissão (406). Verifique as políticas de RLS.");
                         setLoading(false);
                         return;
                     }
@@ -60,7 +61,7 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
                 onLoginSuccess();
             }
         } catch (err: any) {
-            alert("Erro no login: " + err.message);
+            toast.error("Erro no login: " + err.message);
         } finally {
             setLoading(false);
         }

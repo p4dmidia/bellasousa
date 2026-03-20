@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import { motion } from 'motion/react';
 import { Users, TrendingUp, Award, CheckCircle2, ArrowRight, DollarSign, Zap, Loader2 } from 'lucide-react';
 import { supabase, ORGANIZATION_ID } from '../lib/supabase';
@@ -46,7 +47,7 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
         });
 
         if (error) {
-            alert("Erro ao cadastrar: " + error.message);
+            toast.error("Erro ao cadastrar: " + error.message);
         } else {
             if (data.session) {
                 // Auto-login successful (e.g. email confirmation disabled)

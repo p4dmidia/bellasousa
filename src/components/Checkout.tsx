@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle2, CreditCard, Truck, User, MapPin, ArrowRight, ArrowLeft } from 'lucide-react';
 import { initMercadoPago, Payment } from '@mercadopago/sdk-react';
@@ -41,7 +42,7 @@ export default function Checkout({
             
             // Allow bypassing MP if fields are empty during dev, or handle validations
             if(!personal.email) {
-                alert("Por favor, preencha seu e-mail nos dados pessoais.");
+                toast.error("Por favor, preencha seu e-mail nos dados pessoais.");
                 setIsProcessing(false);
                 reject();
                 return;
@@ -68,14 +69,14 @@ export default function Checkout({
                      setStep('success');
                      resolve();
                 } else {
-                     alert("Falha no pagamento: " + (response.message || response.status));
+                     toast.error("Falha no pagamento: " + (response.message || response.status));
                      reject();
                 }
             })
             .catch((error) => {
                 setIsProcessing(false);
                 console.error(error);
-                alert("Erro ao comunicar com o servidor de pagamento.");
+                toast.error("Erro ao comunicar com o servidor de pagamento.");
                 reject();
             });
         });

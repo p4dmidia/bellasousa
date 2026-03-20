@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
 import { Mail, Lock, ArrowRight, UserPlus, HelpCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
 
 export function Login({ onBack, onSwitchToRegister, onLoginSuccess }: { onBack: () => void, onSwitchToRegister: () => void, onLoginSuccess: () => void }) {
@@ -19,7 +20,7 @@ export function Login({ onBack, onSwitchToRegister, onLoginSuccess }: { onBack: 
         });
 
         if (error) {
-            alert("Erro ao entrar: " + error.message);
+            toast.error("Erro ao entrar: " + error.message);
         } else {
             onLoginSuccess();
         }

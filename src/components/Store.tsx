@@ -208,7 +208,7 @@ export default function Store({
                                         >
                                             <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-slate-50 cursor-pointer" onClick={onProductClick}>
                                                 <img
-                                                    src={product.image}
+                                                    src={product.image_url || product.image}
                                                     alt={product.name}
                                                     className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
                                                 />

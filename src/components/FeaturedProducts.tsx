@@ -31,7 +31,7 @@ const products = [
   }
 ];
 
-export default function FeaturedProducts({ onProductClick, onAddToCart }: { onProductClick: () => void, onAddToCart: (product: any) => void }) {
+export default function FeaturedProducts({ onProductClick, onAddToCart }: { onProductClick: (product?: any) => void, onAddToCart: (product: any) => void }) {
 
   return (
     <section className="py-24 px-6 md:px-20 bg-primary/95">
@@ -58,7 +58,7 @@ export default function FeaturedProducts({ onProductClick, onAddToCart }: { onPr
               viewport={{ once: true }}
               transition={{ delay: index * 0.1 }}
               className="group product-card flex flex-col gap-5 cursor-pointer"
-              onClick={onProductClick}
+              onClick={() => onProductClick(product)}
             >
               <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-accent/5">
                 <div
