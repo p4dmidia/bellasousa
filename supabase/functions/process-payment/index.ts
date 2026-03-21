@@ -20,7 +20,7 @@ serve(async (req) => {
     const payment = new Payment(client);
 
     const body = await req.json();
-    const { payment_data, items, user_info, total_amount, organization_id, affiliate_id } = body;
+    const { payment_data, items, user_info, total_amount, organization_id, affiliate_id, payment_method_id } = body;
 
     // Optional: create order in Supabase before payment, as 'pending'
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -28,17 +28,54 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Call Mercado Pago API to create the payment
-    const paymentResult = await payment.create({
-      body: {
+    const bodyPayload: any = {
         ...payment_data,
+        transaction_amount: Number(total_amount),
         description: `Pedido - ${items.length} itens`,
         metadata: {
           user_email: user_info?.email,
           organization_id: organization_id,
           affiliate_id: affiliate_id,
         }
-      }
-    });
+    };
+
+    // Ensure payer exists even if not in payment_data
+    if (!bodyPayload.payer) {
+      bodyPayload.payer = {};
+    }
+    
+    // Inject Email if missing
+    if (!bodyPayload.payer.email && user_info?.email) {
+      bodyPayload.payer.email = user_info.email;
+    }
+
+    // Inject CPF and Name for PIX
+    if (!bodyPayload.payer.identification && user_info?.cpf) {
+        bodyPayload.payer.identification = {
+             type: 'CPF',
+             number: user_info.cpf.replace(/\D/g, '')
+        };
+    }
+    if (!bodyPayload.payer.first_name && user_info?.name) {
+        bodyPayload.payer.first_name = user_info.name.split(' ')[0];
+        bodyPayload.payer.last_name = user_info.name.split(' ').slice(1).join(' ');
+    }
+
+    let paymentResult: any;
+
+    if (bodyPayload.payment_method_id && bodyPayload.payment_method_id.startsWith('manual_')) {
+      // Manual POS order bypass - no gateway
+      paymentResult = {
+        id: 'pos_' + Date.now().toString(),
+        status: 'approved',
+        payment_method_id: bodyPayload.payment_method_id,
+        point_of_interaction: {}
+      };
+    } else {
+      paymentResult = await payment.create({
+        body: bodyPayload
+      });
+    }
 
     // Fetch Configs for this organization
     const { data: configData } = await supabase
@@ -61,16 +98,22 @@ serve(async (req) => {
     // Save order in Supabase
     const { error: dbError } = await supabase.from('orders').insert({
       organization_id: organization_id,
+      nome: user_info?.name || 'Cliente',
+      customer_name: user_info?.name || 'Cliente', // Legacy column
       email: user_info?.email,
+      whatsapp: user_info?.whatsapp,
       total_amount: total_amount,
+      items: items, // Save line items
       status: paymentResult.status === 'approved' ? 'completed' : 'pending',
       payment_id: paymentResult.id?.toString(),
+      payment_method: payment_method_id,
       affiliate_id: affiliate_id,
       commission_amount: commission_amount
     });
 
     if (dbError) {
       console.error('Error saving order:', dbError);
+      throw new Error(`Falha no banco de dados: ${dbError.message}. Detalhes: ${dbError.details || JSON.stringify(dbError)}`);
     }
 
     return new Response(
@@ -78,9 +121,23 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (error) {
-    console.error(error);
+    console.error("API Payment Error:", error);
+    
+    // Extract deep error cause if present from MP SDK
+    let errorMessage = error.message;
+    let errorDetails = null;
+
+    if (error.cause) {
+        errorDetails = error.cause;
+        if (Array.isArray(error.cause)) {
+            errorMessage = error.cause.map((e: any) => e.message || e.description || JSON.stringify(e)).join(' | ');
+        } else if (typeof error.cause === 'object') {
+            errorMessage = error.cause.message || error.cause.description || JSON.stringify(error.cause);
+        }
+    }
+
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage, details: errorDetails }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

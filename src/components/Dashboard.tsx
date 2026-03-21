@@ -130,6 +130,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
 
   const fetchDashboardData = async () => {
     setLoading(true);
+    try {
       const { data: auth } = await supabase.auth.getUser();
       const user = auth?.user;
       
@@ -139,7 +140,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
       }
       setCurrentUser(user);
 
-      // Fetch Profile - discovery first to avoid ID mismatch issues
+      // Fetch Profile
       const { data: profileData } = await supabase
         .from('user_profiles')
         .select('*')
@@ -160,11 +161,9 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
           setLeadershipConfig(configData.leadership_bonus_config);
         }
         
-        const balanceValue = profileData.balance || 0;
-        // Use the profile's own organization_id (robust multi-tenancy)
         const userOrgId = profileData.organization_id || ORGANIZATION_ID;
 
-        // Fetch All Users for this organization to build network and map names
+        // Fetch All Users for this organization
         const { data: allUsers, error: usersError } = await supabase
           .from('user_profiles')
           .select('*')
@@ -172,51 +171,6 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         
         if (usersError) console.error("Dashboard: Error fetching users:", usersError);
         const usersList = allUsers || [];
-
-        // Ensure current user is in the list for tree building
-        if (profileData && !usersList.find(u => u.id === profileData.id)) {
-          usersList.push(profileData);
-        }
-
-        const network = usersList.filter(u => u.referrer_id === user.id);
-        console.log("Dashboard: My Network count:", network.length);
-        setMyNetwork(network);
-
-        // Recursive function to build the network tree structure
-        const generateTree = (uId: string, list: any[]): AffiliateNode | null => {
-          const userNode = list.find(u => u.id === uId);
-          if (!userNode) return null;
-
-          const children = list
-            .filter(u => u.referrer_id === uId)
-            .map(child => generateTree(child.id, list))
-            .filter((node): node is AffiliateNode => node !== null);
-
-          return {
-            id: userNode.id,
-            name: userNode.full_name || userNode.nome || userNode.email?.split('@')[0] || 'Consultora',
-            level: userNode.role === 'affiliate' ? 'Consultora' : (userNode.role || 'Consultora'),
-            pts: "0",
-            image: userNode.avatar_url,
-            children: children.length > 0 ? children : undefined
-          };
-        };
-
-
-
-        setProfileForm(prev => ({
-           ...prev,
-           nome: user?.user_metadata?.full_name || user?.user_metadata?.nome || profileData.nome || profileData.full_name || '',
-           email: user.email || '',
-           phone: user?.user_metadata?.phone || user?.user_metadata?.whatsapp || profileData.phone || '',
-           cpf: user?.user_metadata?.cpf || profileData.cpf || ''
-        }));
-        
-
-
-        const tree = generateTree(user.id, usersList);
-        console.log("Dashboard: Tree built with depth. Users:", usersList.length, "Org:", userOrgId);
-        setTreeData(tree);
 
         // Fetch Orders for this organization
         const { data: allOrders, error: ordersError } = await supabase
@@ -226,10 +180,41 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
           .order('created_at', { ascending: false });
         
         if (ordersError) console.error("Dashboard: Error fetching orders:", ordersError);
-        const ordersList = allOrders || [];
+        const ordersListRaw = allOrders || [];
 
-        // Try to identify orders by referrer (fallback logic)
-        const myCommOrders = ordersList
+        // 1. Recursive function to build the network tree structure
+        const generateTree = (uId: string, list: any[], rawOrders: any[]): AffiliateNode | null => {
+          const userNode = list.find(u => u.id === uId);
+          if (!userNode) return null;
+
+          const children = list
+            .filter(u => u.referrer_id === uId)
+            .map(child => generateTree(child.id, list, rawOrders))
+            .filter((node): node is AffiliateNode => node !== null);
+
+          // Calculate volume for this node's sales
+          const userOrders = rawOrders.filter(o => o.affiliate_id === uId || o.referrer_id === uId);
+          const totalVolume = userOrders.reduce((acc, o) => acc + (o.total_amount || 0), 0);
+
+          return {
+            id: userNode.id,
+            name: userNode.full_name || userNode.nome || userNode.email?.split('@')[0] || 'Consultora',
+            level: userNode.role === 'affiliate' ? 'Consultora' : (userNode.role || 'Consultora'),
+            pts: totalVolume.toLocaleString('pt-BR'),
+            image: userNode.avatar_url,
+            children: children.length > 0 ? children : undefined
+          };
+        };
+
+        const tree = generateTree(user.id, usersList, ordersListRaw);
+        setTreeData(tree);
+
+        // 2. Identify current user's network
+        const network = usersList.filter(u => u.referrer_id === user.id);
+        setMyNetwork(network);
+
+        // 3. Identify orders that generate commission for this user
+        const myCommOrders = ordersListRaw
           .filter(o => 
             o.referrer_id === user.id || 
             o.affiliate_id === user.id ||
@@ -239,27 +224,39 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
             const customer = usersList.find(u => u.id === order.user_id);
             return {
               ...order,
-              // Fallback to email/metadata if full_name is missing
-              customer_name: customer?.full_name || customer?.email?.split('@')[0] || 'Cliente'
+              customer_name: order.nome || order.customer_name || customer?.full_name || customer?.email?.split('@')[0] || 'Cliente'
             };
           });
 
-        console.log("Dashboard: My Orders count:", myCommOrders.length);
         setMyOrders(myCommOrders);
 
-        // Balance is missing from table based on schema investigation
-        const totalPoints = 0;
+        // 4. Calculate Stats
+        const calculatedBalance = myCommOrders.reduce((acc, o) => acc + (o.commission_amount || 0), 0);
+        const calculatedSales = myCommOrders.reduce((acc, o) => acc + (o.total_amount || 0), 0);
         
         setStats([
-          { label: 'Saldo Disponível', value: `R$ ${balanceValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Wallet className="w-5 h-5" />, trend: 'Disponível', color: 'bg-green-500' },
+          { label: 'Saldo Disponível', value: `R$ ${(calculatedBalance || profileData.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Wallet className="w-5 h-5" />, trend: 'Disponível', color: 'bg-green-500' },
           { label: 'Consultoras Diretas', value: network.length.toString(), icon: <Users className="w-5 h-5" />, trend: 'Rede', color: 'bg-blue-500' },
           { label: 'Nível Atual', value: profileData.rank || 'Consultor', icon: <Award className="w-5 h-5" />, trend: 'Nível', color: 'bg-purple-500' },
-          { label: 'Total de Vendas', value: `R$ ${(profileData.total_sales || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Zap className="w-5 h-5" />, trend: 'Faturamento', color: 'bg-orange-500' },
+          { label: 'Total de Vendas', value: `R$ ${(calculatedSales || profileData.total_sales || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Zap className="w-5 h-5" />, trend: 'Faturamento', color: 'bg-orange-500' },
         ]);
+
+        // 5. Update Profile Form
+        setProfileForm({
+           nome: user?.user_metadata?.full_name || user?.user_metadata?.nome || profileData.nome || profileData.full_name || '',
+           email: user.email || '',
+           phone: user?.user_metadata?.phone || user?.user_metadata?.whatsapp || profileData.phone || '',
+           cpf: user?.user_metadata?.cpf || profileData.cpf || '',
+           newPassword: '',
+           confirmPassword: ''
+        });
       }
-      
+    } catch (error) {
+       console.error("Dashboard: Fatal error:", error);
+    } finally {
       setLoading(false);
-    };
+    }
+  };
 
   useEffect(() => {
     fetchDashboardData();

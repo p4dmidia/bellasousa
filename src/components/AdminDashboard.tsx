@@ -261,7 +261,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
   const totalRevenue = orders.reduce((acc, order) => acc + (order.total_amount || 0), 0);
   const totalCommissions = orders.reduce((acc, order) => acc + (order.commission_amount || 0), 0);
   const affiliateRelatedRevenue = orders
-    .filter(o => o.referrer_id)
+    .filter(o => o.referrer_id || o.affiliate_id)
     .reduce((acc, order) => acc + (order.total_amount || 0), 0);
   
   const averageTicket = orders.length > 0 ? totalRevenue / orders.length : 0;
@@ -273,9 +273,20 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
     { label: 'Ticket Médio', value: `R$ ${averageTicket.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <TrendingUp className="w-5 h-5" />, trend: 'Média', color: 'from-green-500 to-green-400' },
   ];
 
-  const filteredAffiliates = affiliates.filter(a => 
+  const filteredAffiliates = affiliates.map(a => {
+    const affiliateOrders = orders.filter(o => o.affiliate_id === a.id || o.referrer_id === a.id);
+    const calculatedSales = affiliateOrders.reduce((acc, o) => acc + (o.total_amount || 0), 0);
+    const calculatedCommission = affiliateOrders.reduce((acc, o) => acc + (o.commission_amount || 0), 0);
+    return {
+      ...a,
+      total_sales: calculatedSales > 0 ? calculatedSales : (a.total_sales || 0),
+      balance: calculatedCommission > 0 ? calculatedCommission : (a.balance || 0)
+    };
+  }).filter(a => 
     (a.email || "").toLowerCase().includes(affiliateSearch.toLowerCase()) ||
-    (a.login || "").toLowerCase().includes(affiliateSearch.toLowerCase())
+    (a.login || "").toLowerCase().includes(affiliateSearch.toLowerCase()) ||
+    (a.nome || "").toLowerCase().includes(affiliateSearch.toLowerCase()) ||
+    (a.full_name || "").toLowerCase().includes(affiliateSearch.toLowerCase())
   );
 
   const filteredProducts = products.filter(p => 
