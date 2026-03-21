@@ -35,12 +35,12 @@ export default function Header({
             <img src={logoImg} alt="Bella Sousa Logo" className="h-full w-auto object-contain" />
           </div>
         </div>
-        <nav className="hidden lg:flex items-center gap-10">
-          <a className="text-slate-100 hover:text-accent transition-colors text-sm font-medium tracking-widest uppercase cursor-pointer" onClick={() => handleNavigate('store')}>Loja Virtual</a>
-          <a className="text-slate-100 hover:text-accent transition-colors text-sm font-medium tracking-widest uppercase cursor-pointer" onClick={() => handleNavigate('store', 'Lingerie')}>Lingerie</a>
-          <a className="text-slate-100 hover:text-accent transition-colors text-sm font-medium tracking-widest uppercase cursor-pointer" onClick={() => handleNavigate('store', 'Cosméticos')}>Cosméticos</a>
-          <a className="text-slate-100 hover:text-accent transition-colors text-sm font-medium tracking-widest uppercase cursor-pointer" onClick={() => handleNavigate('store', 'Casa')}>Casa</a>
-          <a className="text-slate-100 hover:text-accent transition-colors text-sm font-medium tracking-widest uppercase cursor-pointer" onClick={() => handleNavigate('affiliate')}>Cadastre-se</a>
+        <nav className="hidden lg:flex items-center gap-8 xl:gap-10">
+          <a className="text-slate-100 hover:text-accent transition-colors text-base lg:text-lg font-medium cursor-pointer" onClick={() => handleNavigate('store')}>Loja Virtual</a>
+          <a className="text-slate-100 hover:text-accent transition-colors text-base lg:text-lg font-medium cursor-pointer" onClick={() => handleNavigate('store', 'Lingerie')}>Lingerie</a>
+          <a className="text-slate-100 hover:text-accent transition-colors text-base lg:text-lg font-medium cursor-pointer" onClick={() => handleNavigate('store', 'Cosméticos')}>Cosméticos</a>
+          <a className="text-slate-100 hover:text-accent transition-colors text-base lg:text-lg font-medium cursor-pointer" onClick={() => handleNavigate('store', 'Casa')}>Casa</a>
+          <a className="text-slate-100 hover:text-accent transition-colors text-base lg:text-lg font-medium cursor-pointer" onClick={() => handleNavigate('affiliate')}>Cadastre-se</a>
         </nav>
       </div>
       <div className="flex items-center gap-3 lg:gap-6">
@@ -59,7 +59,7 @@ export default function Header({
         </div>
         <button
           onClick={() => onNavigate('login')}
-          className="hidden md:flex items-center gap-2 text-slate-100 hover:text-accent transition-all text-[11px] font-bold uppercase tracking-widest px-4 py-2 border border-accent/20 rounded-full hover:bg-accent/5"
+          className="hidden md:flex items-center gap-2 text-slate-100 hover:text-accent transition-all text-sm font-medium px-5 py-2.5 border border-accent/20 rounded-full hover:bg-accent/5"
         >
           <User className="w-4 h-4" />
           Escritório Virtual
