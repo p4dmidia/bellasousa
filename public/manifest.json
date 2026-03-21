@@ -1,0 +1,16 @@
+{
+  "name": "Bella Sousa Boutique",
+  "short_name": "Bella Sousa",
+  "description": "Boutique de Lingerie e Cosméticos Luxuosos",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#130d0d",
+  "theme_color": "#c4a484",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

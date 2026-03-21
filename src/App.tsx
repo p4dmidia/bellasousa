@@ -12,6 +12,7 @@ import ProductDetail from './components/ProductDetail';
 import Dashboard from './components/Dashboard';
 import { AdminLogin } from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -299,6 +300,7 @@ export default function App() {
         )}
 
       </AnimatePresence>
+      <PWAInstallPrompt />
     </div>
   );
 }
