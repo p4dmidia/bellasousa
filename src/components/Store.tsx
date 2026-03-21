@@ -186,7 +186,7 @@ export default function Store({
                     </aside>
 
                     {/* Grid de Produtos */}
-                    <main className="flex-1">
+                    <main className="flex-1 p-5">
                         <div className="flex justify-between items-center mb-8">
                             <span className="text-slate-400 text-xs uppercase tracking-widest">{filteredProducts.length} Produtos Encontrados</span>
                         </div>

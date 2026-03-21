@@ -95,8 +95,7 @@ export default function Header({
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 left-0 bottom-0 w-[85%] max-w-sm border-r border-accent/20 z-[70] p-8 shadow-2xl"
-              style={{ backgroundColor: '#251212' }}
+              className="fixed top-0 left-0 bottom-0 w-[85%] max-w-sm border-r border-accent/20 z-[70] p-8 shadow-2xl bg-[#3C1E1E]"
             >
               <div className="flex justify-between items-center mb-12">
                 <div className="h-10 overflow-hidden rounded-[8px]">
