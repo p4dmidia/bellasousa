@@ -112,7 +112,7 @@ export default function Checkout({
     }
 
     return (
-        <div className="flex-1 bg-slate-50 py-20 px-6 lg:px-12">
+        <div className="flex-1 bg-slate-50 py-10 lg:py-20 px-4 sm:px-6 lg:px-12">
             <div className="max-w-7xl mx-auto">
                 <div className="flex items-center gap-4 mb-12">
                     <button onClick={onBackToCart} className="text-slate-400 hover:text-primary transition-colors">
@@ -129,7 +129,7 @@ export default function Checkout({
                         className="space-y-8"
                     >
                         <div className="space-y-8">
-                            <section className="bg-white p-8 rounded-3xl border border-black/5 shadow-sm">
+                            <section className="bg-white p-6 sm:p-8 rounded-3xl border border-black/5 shadow-sm">
                                 <div className="flex items-center gap-3 mb-8">
                                     <div className="size-10 bg-accent/10 rounded-full flex items-center justify-center">
                                         <User className="w-5 h-5 text-accent" />
@@ -160,7 +160,7 @@ export default function Checkout({
                                 </div>
                             </section>
 
-                            <section className="bg-white p-8 rounded-3xl border border-black/5 shadow-sm">
+                            <section className="bg-white p-6 sm:p-8 rounded-3xl border border-black/5 shadow-sm">
                                 <div className="flex items-center gap-3 mb-8">
                                     <div className="size-10 bg-accent/10 rounded-full flex items-center justify-center">
                                         <MapPin className="w-5 h-5 text-accent" />
@@ -186,7 +186,7 @@ export default function Checkout({
                                 </div>
                             </section>
 
-                            <section className="bg-white p-8 rounded-3xl border border-black/5 shadow-sm">
+                            <section className="bg-white p-6 sm:p-8 rounded-3xl border border-black/5 shadow-sm">
                                 <div className="flex items-center gap-3 mb-8">
                                     <div className="size-10 bg-accent/10 rounded-full flex items-center justify-center">
                                         <CreditCard className="w-5 h-5 text-accent" />
@@ -223,7 +223,7 @@ export default function Checkout({
 
                     {/* Resumo Lateral */}
                     <aside>
-                        <div className="bg-white p-8 rounded-3xl border border-black/5 shadow-xl sticky top-32">
+                        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-black/5 shadow-xl sticky top-32">
                             <h2 className="text-primary text-xl font-serif mb-8 border-b border-slate-50 pb-4">Resumo da Compra</h2>
 
                             <div className="max-h-64 overflow-y-auto mb-8 pr-2 space-y-4">

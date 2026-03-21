@@ -27,10 +27,10 @@ export default function Header({
 
 
   return (
-    <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-accent/20 px-6 md:px-20 py-6 sticky top-0 bg-primary/95 backdrop-blur-md z-50">
+    <header className="flex items-center justify-between border-b border-solid border-accent/20 px-6 lg:px-20 py-4 lg:py-6 sticky top-0 bg-primary/95 backdrop-blur-md z-50">
       <div className="flex items-center gap-12">
         <div className="flex items-center cursor-pointer" onClick={() => onNavigate('home')}>
-          <div className="h-20 overflow-hidden rounded-[11px]">
+          <div className="h-12 lg:h-20 overflow-hidden rounded-[11px]">
             <img src={logoImg} alt="Bella Sousa Logo" className="h-full w-auto object-contain" />
           </div>
         </div>
@@ -42,7 +42,7 @@ export default function Header({
           <a className="text-slate-100 hover:text-accent transition-colors text-sm font-medium tracking-widest uppercase cursor-pointer" onClick={() => handleNavigate('affiliate')}>Cadastre-se</a>
         </nav>
       </div>
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-3 lg:gap-6">
         <div className="hidden md:flex items-center">
           <div className="flex w-full flex-1 items-stretch rounded-full h-10 bg-primary/20 border border-primary/40 min-w-[240px]">
             <div className="text-accent flex items-center justify-center pl-4">

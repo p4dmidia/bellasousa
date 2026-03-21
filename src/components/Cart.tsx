@@ -47,13 +47,13 @@ export default function Cart({
     }
 
     return (
-        <div className="flex-1 bg-slate-50 py-20 px-6 lg:px-12">
+        <div className="flex-1 bg-slate-50 py-10 lg:py-20 px-4 sm:px-6 lg:px-12">
             <div className="max-w-7xl mx-auto">
                 <div className="flex items-center gap-4 mb-12">
                     <button onClick={onBackToStore} className="text-slate-400 hover:text-primary transition-colors">
                         <ArrowLeft className="w-6 h-6" />
                     </button>
-                    <h1 className="text-primary text-4xl font-serif">Minha Sacola</h1>
+                    <h1 className="text-primary text-3xl sm:text-4xl font-serif">Minha Sacola</h1>
                 </div>
 
                 <div className="grid lg:grid-cols-3 gap-12">
@@ -67,9 +67,9 @@ export default function Cart({
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, x: -20 }}
-                                    className="bg-white p-6 rounded-2xl border border-black/5 flex gap-6 items-center shadow-sm"
+                                    className="bg-white p-4 sm:p-6 rounded-2xl border border-black/5 flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center shadow-sm"
                                 >
-                                    <div className="size-24 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0">
+                                    <div className="size-20 sm:size-24 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0">
                                         <img src={item.image || item.image_url} alt={item.name} className="w-full h-full object-cover" />
                                     </div>
 
@@ -79,28 +79,30 @@ export default function Cart({
                                         <p className="text-accent font-bold">R$ {item.price.toFixed(2)}</p>
                                     </div>
 
-                                    <div className="flex items-center gap-4 bg-slate-50 rounded-full px-4 py-2 border border-slate-100">
+                                    <div className="flex items-center justify-between w-full sm:w-auto gap-4">
+                                        <div className="flex items-center gap-4 bg-slate-50 rounded-full px-4 py-2 border border-slate-100">
+                                            <button
+                                                onClick={() => onUpdateQuantity(item.id, -1)}
+                                                className="text-slate-400 hover:text-accent p-1 transition-colors"
+                                            >
+                                                <Minus className="w-4 h-4" />
+                                            </button>
+                                            <span className="text-primary font-bold min-w-4 text-center">{item.quantity}</span>
+                                            <button
+                                                onClick={() => onUpdateQuantity(item.id, 1)}
+                                                className="text-slate-400 hover:text-accent p-1 transition-colors"
+                                            >
+                                                <Plus className="w-4 h-4" />
+                                            </button>
+                                        </div>
+
                                         <button
-                                            onClick={() => onUpdateQuantity(item.id, -1)}
-                                            className="text-slate-400 hover:text-accent p-1 transition-colors"
+                                            onClick={() => onRemove(item.id)}
+                                            className="text-slate-300 hover:text-red-400 p-2 transition-colors"
                                         >
-                                            <Minus className="w-4 h-4" />
-                                        </button>
-                                        <span className="text-primary font-bold min-w-4 text-center">{item.quantity}</span>
-                                        <button
-                                            onClick={() => onUpdateQuantity(item.id, 1)}
-                                            className="text-slate-400 hover:text-accent p-1 transition-colors"
-                                        >
-                                            <Plus className="w-4 h-4" />
+                                            <Trash2 className="w-5 h-5" />
                                         </button>
                                     </div>
-
-                                    <button
-                                        onClick={() => onRemove(item.id)}
-                                        className="text-slate-300 hover:text-red-400 p-2 transition-colors ml-2"
-                                    >
-                                        <Trash2 className="w-5 h-5" />
-                                    </button>
                                 </motion.div>
                             ))}
                         </AnimatePresence>
@@ -108,7 +110,7 @@ export default function Cart({
 
                     {/* Resumo */}
                     <aside>
-                        <div className="bg-white p-8 rounded-3xl border border-black/5 shadow-xl sticky top-32">
+                        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-black/5 shadow-xl sticky top-32">
                             <h2 className="text-primary text-xl font-serif mb-8 border-b border-slate-50 pb-4">Resumo do Pedido</h2>
 
                             <div className="space-y-4 mb-8">

@@ -106,7 +106,7 @@ export default function App() {
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen flex flex-col bg-white overflow-x-hidden">
       {view !== 'dashboard' && view !== 'admin-dashboard' && view !== 'admin-login' && (
         <Header
           onNavigate={(v, cat) => v === 'store' ? navigateToStore(cat) : setView(v === 'admin' ? 'admin-login' : v)}
