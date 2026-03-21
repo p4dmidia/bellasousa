@@ -73,6 +73,11 @@ export default function App() {
   };
 
   const addToCart = (product: any) => {
+    const normalizedProduct = {
+      ...product,
+      image: product.image_url || product.image
+    };
+
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
@@ -80,7 +85,7 @@ export default function App() {
           item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...normalizedProduct, quantity: 1 }];
     });
   };
 

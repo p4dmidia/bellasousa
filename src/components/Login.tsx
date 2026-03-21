@@ -7,15 +7,45 @@ import { supabase } from '../lib/supabase';
 export function Login({ onBack, onSwitchToRegister, onLoginSuccess }: { onBack: () => void, onSwitchToRegister: () => void, onLoginSuccess: () => void }) {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [email, setEmail] = useState('');
+    const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
 
     const handleSubmit = async (e: any) => {
         e.preventDefault();
         setLoading(true);
 
+        let loginEmail = identifier;
+
+        // If identifier is not an email (no @), look it up in user_profiles
+        if (!identifier.includes('@')) {
+            // Sanitize CPF if it looks like one (numeric only)
+            const sanitized = identifier.replace(/\D/g, '');
+            
+            // Query user_profiles for cpf OR login
+            // We use .or() to search in multiple columns
+            const { data: profile, error: profileError } = await supabase
+                .from('user_profiles')
+                .select('email')
+                .or(`cpf.eq.${identifier},login.eq.${identifier},cpf.eq.${sanitized}`)
+                .maybeSingle();
+
+            if (profileError) {
+                toast.error("Erro ao verificar identificador: " + profileError.message);
+                setLoading(false);
+                return;
+            }
+
+            if (profile?.email) {
+                loginEmail = profile.email;
+            } else {
+                toast.error("Usuário não encontrado.");
+                setLoading(false);
+                return;
+            }
+        }
+
         const { error } = await supabase.auth.signInWithPassword({
-            email,
+            email: loginEmail,
             password
         });
 
@@ -45,15 +75,15 @@ export function Login({ onBack, onSwitchToRegister, onLoginSuccess }: { onBack: 
 
                     <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
                         <div className="space-y-2">
-                            <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">E-mail</label>
+                            <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">E-mail, Usuário ou CPF</label>
                             <div className="relative">
                                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
                                 <input
                                     required
-                                    type="email"
-                                    placeholder="seu@email.com"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
+                                    type="text"
+                                    placeholder="email@exemplo.com ou CPF"
+                                    value={identifier}
+                                    onChange={(e) => setIdentifier(e.target.value)}
                                     className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 pl-12 focus:outline-none focus:border-accent/40 transition-all font-medium text-slate-900"
                                 />
                             </div>

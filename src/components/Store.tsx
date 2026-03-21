@@ -206,7 +206,7 @@ export default function Store({
                                             exit={{ opacity: 0, scale: 0.9 }}
                                             className="group flex flex-col gap-4"
                                         >
-                                            <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-slate-50 cursor-pointer" onClick={onProductClick}>
+                                            <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-slate-50 cursor-pointer" onClick={() => onProductClick(product)}>
                                                 <img
                                                     src={product.image_url || product.image}
                                                     alt={product.name}

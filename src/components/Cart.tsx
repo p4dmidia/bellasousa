@@ -6,6 +6,7 @@ interface CartItem {
     name: string;
     price: number;
     image: string;
+    image_url?: string;
     quantity: number;
     category: string;
 }
@@ -24,7 +25,7 @@ export default function Cart({
     onProceedToCheckout: () => void
 }) {
     const subtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    const shipping = subtotal > 300 ? 0 : 25;
+    const shipping = 0;
     const total = subtotal + shipping;
 
     if (items.length === 0) {
@@ -69,7 +70,7 @@ export default function Cart({
                                     className="bg-white p-6 rounded-2xl border border-black/5 flex gap-6 items-center shadow-sm"
                                 >
                                     <div className="size-24 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0">
-                                        <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                                        <img src={item.image || item.image_url} alt={item.name} className="w-full h-full object-cover" />
                                     </div>
 
                                     <div className="flex-1">
@@ -116,8 +117,8 @@ export default function Cart({
                                     <span>R$ {subtotal.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between text-slate-500">
-                                    <span>Entrega</span>
-                                    <span>{shipping === 0 ? 'Grátis' : `R$ ${shipping.toFixed(2)}`}</span>
+                                    <span>Retirada na Loja</span>
+                                    <span>Grátis</span>
                                 </div>
                                 <div className="pt-4 border-t border-slate-50 flex justify-between text-primary font-bold text-lg">
                                     <span>Total</span>

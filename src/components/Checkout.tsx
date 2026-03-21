@@ -15,6 +15,7 @@ interface CartItem {
     name: string;
     price: number;
     image: string;
+    image_url?: string;
     quantity: number;
 }
 
@@ -33,7 +34,7 @@ export default function Checkout({
     const [isProcessing, setIsProcessing] = useState(false);
 
     const subtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    const shipping = subtotal > 300 ? 0 : 25;
+    const shipping = 0;
     const total = subtotal + shipping;
 
     const onSubmitPayment = async ({ selectedPaymentMethod, formData }: any) => {
@@ -97,7 +98,7 @@ export default function Checkout({
                 <p className="text-slate-400 text-sm mb-10 text-center font-bold uppercase tracking-widest">Número do Pedido: #BS-{Math.floor(Math.random() * 90000) + 10000}</p>
 
                 <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 w-full max-w-md mb-12">
-                    <p className="text-primary text-center text-sm leading-relaxed italic">"Enviamos um e-mail com todos os detalhes e o código de rastreio será enviado assim que seu pedido for despachado."</p>
+                    <p className="text-primary text-center text-sm leading-relaxed italic">"Enviamos um e-mail com todos os detalhes e você será notificada assim que seu pedido estiver pronto para retirada na loja."</p>
                 </div>
 
                 <button
@@ -164,7 +165,7 @@ export default function Checkout({
                                     <div className="size-10 bg-accent/10 rounded-full flex items-center justify-center">
                                         <MapPin className="w-5 h-5 text-accent" />
                                     </div>
-                                    <h2 className="text-primary text-xl font-serif">Endereço de Entrega</h2>
+                                    <h2 className="text-primary text-xl font-serif">Dados para Retirada</h2>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="md:col-span-2 space-y-2">
@@ -229,7 +230,7 @@ export default function Checkout({
                                 {items.map(item => (
                                     <div key={item.id} className="flex gap-4 items-center">
                                         <div className="size-16 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0">
-                                            <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                                            <img src={item.image || item.image_url} alt={item.name} className="w-full h-full object-cover" />
                                         </div>
                                         <div className="flex-1">
                                             <h4 className="text-primary text-sm font-serif line-clamp-1">{item.name}</h4>
@@ -246,8 +247,8 @@ export default function Checkout({
                                     <span>R$ {subtotal.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between text-slate-500 text-sm">
-                                    <span>Entrega</span>
-                                    <span>{shipping === 0 ? 'Grátis' : `R$ ${shipping.toFixed(2)}`}</span>
+                                    <span>Retirada na Loja</span>
+                                    <span>Grátis</span>
                                 </div>
                                 <div className="pt-4 border-t border-slate-50 flex justify-between text-primary font-bold text-lg">
                                     <span>Total</span>
@@ -256,8 +257,8 @@ export default function Checkout({
                             </div>
 
                             <div className="bg-slate-50 p-4 rounded-xl flex items-center gap-3 border border-slate-100">
-                                <Truck className="w-4 h-4 text-accent" />
-                                <p className="text-[11px] text-slate-600 font-bold uppercase tracking-widest">Entrega Internacional Segura</p>
+                                <MapPin className="w-4 h-4 text-accent" />
+                                <p className="text-[11px] text-slate-600 font-bold uppercase tracking-widest">Retirada na Loja Bella Sousa</p>
                             </div>
                         </div>
                     </aside>
