@@ -10,8 +10,12 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(reg => console.log('SW registered:', reg))
+          navigator.serviceWorker.register('/sw.js?v=2')
+            .then(reg => {
+              console.log('SW registered:', reg);
+              // Force update if SW is found
+              reg.update();
+            })
             .catch(err => console.log('SW failed:', err));
         });
       }
