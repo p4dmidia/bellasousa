@@ -27,6 +27,7 @@ export default function Header({
 
 
   return (
+    <>
     <header className="flex items-center justify-between border-b border-solid border-accent/20 px-6 lg:px-20 py-4 lg:py-6 sticky top-0 bg-primary/95 backdrop-blur-md z-50">
       <div className="flex items-center gap-12">
         <div className="flex items-center cursor-pointer" onClick={() => onNavigate('home')}>
@@ -78,6 +79,7 @@ export default function Header({
           <Menu className="w-6 h-6" />
         </button>
       </div>
+    </header>
 
       {/* Menu Mobile Drawer */}
       <AnimatePresence>
@@ -95,7 +97,7 @@ export default function Header({
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 left-0 bottom-0 w-[85%] max-w-sm border-r border-accent/20 z-[999] p-8 shadow-2xl mobile-menu-drawer-solid"
+              className="fixed top-0 left-0 bottom-0 w-[85%] max-w-sm bg-primary border-r border-accent/20 z-[999] p-8 shadow-2xl overflow-y-auto"
             >
               <div className="flex justify-between items-center mb-12">
                 <div className="h-10 overflow-hidden rounded-[8px]">
@@ -150,6 +152,6 @@ export default function Header({
           </>
         )}
       </AnimatePresence>
-    </header>
+    </>
   );
 }
