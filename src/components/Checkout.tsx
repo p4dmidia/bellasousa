@@ -29,6 +29,7 @@ export default function Checkout({
     const [paymentResult, setPaymentResult] = useState<any>(null);
     const [paymentMethod] = useState<'whatsapp'>('whatsapp');
     const [selectedAffiliate, setSelectedAffiliate] = useState<any>(null);
+    const [isAffiliateLoading, setIsAffiliateLoading] = useState(true);
     
     useEffect(() => {
         const autoFetchAffiliate = async () => {
@@ -60,6 +61,7 @@ export default function Checkout({
                     console.log("Checkout: Affiliate auto-identified:", displayName);
                 }
             }
+            setIsAffiliateLoading(false);
         };
         autoFetchAffiliate();
     }, []);
@@ -235,9 +237,26 @@ ${itemsList}
                                 </motion.div>
                             )}
 
+                            {!isAffiliateLoading && !selectedAffiliate && (
+                                <motion.div 
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    className="bg-red-50 border border-red-100 p-6 rounded-2xl"
+                                >
+                                    <div className="flex items-start gap-3">
+                                        <div className="size-8 bg-red-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+                                            <Users className="w-4 h-4 text-red-500" />
+                                        </div>
+                                        <p className="text-xs text-red-600 font-medium leading-relaxed">
+                                            Não foi possível identificar quem te indicou, para finalizar a compra, solicite o link de indicação para pessoa que te indicou!
+                                        </p>
+                                    </div>
+                                </motion.div>
+                            )}
+
                             <button 
                                 onClick={onSubmitPayment}
-                                disabled={!isFormValid || isProcessing}
+                                disabled={!isFormValid || isProcessing || !selectedAffiliate}
                                 className="w-full btn-primary py-5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
                                 {isProcessing ? 'Processando...' : 'Finalizar Pedido no WhatsApp'}
