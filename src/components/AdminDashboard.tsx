@@ -257,24 +257,29 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
     setLevelCommissions(newCommissions);
   };
 
-  // Calculate stats from real data
-  const totalRevenue = orders.reduce((acc, order) => acc + (order.total_amount || 0), 0);
-  const totalCommissions = orders.reduce((acc, order) => acc + (order.commission_amount || 0), 0);
-  const affiliateRelatedRevenue = orders
+  // Calculate stats from real data (Only COMPLETED orders for main revenue)
+  const completedOrders = orders.filter(o => o.status === 'completed');
+  const pendingOrders = orders.filter(o => o.status === 'pending');
+
+  const totalRevenue = completedOrders.reduce((acc, order) => acc + (order.total_amount || 0), 0);
+  const totalCommissions = completedOrders.reduce((acc, order) => acc + (order.commission_amount || 0), 0);
+  const pendingRevenue = pendingOrders.reduce((acc, order) => acc + (order.total_amount || 0), 0);
+  
+  const affiliateRelatedRevenue = completedOrders
     .filter(o => o.referrer_id || o.affiliate_id)
     .reduce((acc, order) => acc + (order.total_amount || 0), 0);
   
-  const averageTicket = orders.length > 0 ? totalRevenue / orders.length : 0;
+  const averageTicket = completedOrders.length > 0 ? totalRevenue / completedOrders.length : 0;
 
   const stats = [
-    { label: 'Receita Total', value: `R$ ${totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <DollarSign className="w-5 h-5" />, trend: 'Real', color: 'from-accent to-accent/50' },
-    { label: 'Pedidos Realizados', value: orders.length.toString(), icon: <ShoppingCart className="w-5 h-5" />, trend: 'Total', color: 'from-blue-500 to-blue-400' },
+    { label: 'Receita Confirmada', value: `R$ ${totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <DollarSign className="w-5 h-5" />, trend: 'Liquidado', color: 'from-accent to-accent/50' },
+    { label: 'Pedidos Pendentes', value: pendingOrders.length.toString(), icon: <ShoppingCart className="w-5 h-5" />, trend: `R$ ${pendingRevenue.toLocaleString('pt-BR')}`, color: 'from-yellow-500 to-yellow-400' },
     { label: 'Total Afiliados', value: affiliates.length.toString(), icon: <Users className="w-5 h-5" />, trend: 'Base', color: 'from-purple-500 to-purple-400' },
     { label: 'Ticket Médio', value: `R$ ${averageTicket.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <TrendingUp className="w-5 h-5" />, trend: 'Média', color: 'from-green-500 to-green-400' },
   ];
 
   const filteredAffiliates = affiliates.map(a => {
-    const affiliateOrders = orders.filter(o => o.affiliate_id === a.id || o.referrer_id === a.id);
+    const affiliateOrders = completedOrders.filter(o => o.affiliate_id === a.id || o.referrer_id === a.id);
     const calculatedSales = affiliateOrders.reduce((acc, o) => acc + (o.total_amount || 0), 0);
     const calculatedCommission = affiliateOrders.reduce((acc, o) => acc + (o.commission_amount || 0), 0);
     return {
@@ -1050,7 +1055,18 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                                  order.status === 'pending' ? 'Pendente' : 'Cancelado'}
                               </span>
                             </td>
-                            <td className="p-4 text-right">
+                            <td className="p-4 text-right flex items-center justify-end gap-2">
+                              {order.status === 'pending' && (
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateOrderStatus(order.id, 'completed');
+                                  }}
+                                  className="bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-green-500/20"
+                                >
+                                  Aprovar
+                                </button>
+                              )}
                               <button 
                                 onClick={() => {
                                   setSelectedOrder(order);
@@ -1298,7 +1314,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                           selectedOrder.status === 'completed' ? 'bg-green-500 text-white cursor-default' : 'bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-white'
                         }`}
                       >
-                        Marcar como Concluído
+                        {selectedOrder.status === 'completed' ? 'Pagamento Confirmado' : 'Confirmar Pagamento (WhatsApp)'}
                       </button>
                       <button 
                         onClick={() => handleUpdateOrderStatus(selectedOrder.id, 'pending')}

@@ -30,7 +30,8 @@ import {
   Upload,
   Menu,
   X,
-  Zap
+  Zap,
+  ShoppingCart
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { supabase, ORGANIZATION_ID } from '../lib/supabase';
@@ -231,14 +232,18 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         setMyOrders(myCommOrders);
 
         // 4. Calculate Stats
-        const calculatedBalance = myCommOrders.reduce((acc, o) => acc + (o.commission_amount || 0), 0);
-        const calculatedSales = myCommOrders.reduce((acc, o) => acc + (o.total_amount || 0), 0);
+        const completedOrders = myCommOrders.filter(o => o.status === 'completed');
+        const pendingOrders = myCommOrders.filter(o => o.status === 'pending');
+        
+        const calculatedBalance = completedOrders.reduce((acc, o) => acc + (o.commission_amount || 0), 0);
+        const calculatedSales = completedOrders.reduce((acc, o) => acc + (o.total_amount || 0), 0);
+        const pendingSales = pendingOrders.reduce((acc, o) => acc + (o.total_amount || 0), 0);
         
         setStats([
-          { label: 'Saldo Disponível', value: `R$ ${(calculatedBalance || profileData.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Wallet className="w-5 h-5" />, trend: 'Disponível', color: 'bg-green-500' },
+          { label: 'Saldo Disponível', value: `R$ ${calculatedBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Wallet className="w-5 h-5" />, trend: 'Disponível', color: 'bg-green-500' },
           { label: 'Consultoras Diretas', value: network.length.toString(), icon: <Users className="w-5 h-5" />, trend: 'Rede', color: 'bg-blue-500' },
-          { label: 'Nível Atual', value: profileData.rank || 'Consultor', icon: <Award className="w-5 h-5" />, trend: 'Nível', color: 'bg-purple-500' },
-          { label: 'Total de Vendas', value: `R$ ${(calculatedSales || profileData.total_sales || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Zap className="w-5 h-5" />, trend: 'Faturamento', color: 'bg-orange-500' },
+          { label: 'Vendas Pendentes', value: `R$ ${pendingSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <ShoppingCart className="w-5 h-5" />, trend: 'Aguardando', color: 'bg-yellow-500' },
+          { label: 'Total de Vendas', value: `R$ ${calculatedSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Zap className="w-5 h-5" />, trend: 'Confirmado', color: 'bg-orange-500' },
         ]);
 
         // 5. Update Profile Form
