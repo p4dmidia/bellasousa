@@ -58,6 +58,9 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
                     }
                 }
 
+                // Salvar a sessão de administrador para persistência no F5
+                localStorage.setItem('bella_sousa_admin_session', 'true');
+                localStorage.setItem('bella_sousa_view', 'admin-dashboard');
                 onLoginSuccess();
             }
         } catch (err: any) {

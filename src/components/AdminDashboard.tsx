@@ -229,31 +229,37 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
       const orderToUpdate = orders.find(o => o.id === orderId);
       if (!orderToUpdate) throw new Error("Pedido não encontrado");
 
-      // Se está marcando como concluído e era pendente, distribui MMN e ranking
-      if (newStatus === 'completed' && orderToUpdate.status !== 'completed' && orderToUpdate.affiliate_id) {
+      // Se está marcando como concluído e era pendente, distrib        // 2. Multi-Level Commission Distribution (MMN)
+        if (newStatus === 'completed' && orderToUpdate.affiliate_id) {
+          let currentAffiliateId = orderToUpdate.affiliate_id;
           const orderAmount = Number(orderToUpdate.total_amount || 0);
           const isFixed = commissionType === 'fixed';
-          let currentAffiliateId = orderToUpdate.affiliate_id;
 
+          // Percorrer a árvore de níveis conforme configurado (ex: 4 níveis)
           for (let level = 0; level < levelCommissions.length; level++) {
-            if (!currentAffiliateId) break;
+            if (!currentAffiliateId) {
+              console.log(`Nível ${level + 1}: Sem patrocinador acima. Encerrando.`);
+              break;
+            }
 
-            const commissionValue = Number(levelCommissions[level] || 0);
-            const commissionAmount = isFixed ? commissionValue : orderAmount * (commissionValue / 100);
-
-            // Busca os dados do perfil pra incrementar somando ao saldo atual
-            const { data: profile } = await supabase
+            // Buscar dados oficiais do perfil atual para garantir o saldo mais recente
+            const { data: profile, error: fetchError } = await supabase
               .from('user_profiles')
-              .select('id, balance, total_earnings, total_sales, rank, leadership_bonus_total, referrer_id')
+              .select('id, email, balance, total_earnings, total_sales, rank, leadership_bonus_total, referrer_id')
               .eq('id', currentAffiliateId)
               .single();
 
-            if (!profile) break;
+            if (fetchError || !profile) {
+              console.error(`Erro ao buscar perfil do Nível ${level + 1} (${currentAffiliateId}):`, fetchError);
+              break;
+            }
 
-            const currentTotalSales = Number(profile.total_sales || 0);
-            const newTotalSales = currentTotalSales + orderAmount;
-            
-            // Lógica de Bônus e Plano de Carreira 
+            // Cálculo da comissão (Fixa ou Percentual)
+            const commissionValue = Number(levelCommissions[level] || 0);
+            const commissionAmount = isFixed ? commissionValue : orderAmount * (commissionValue / 100);
+
+            // Cálculo de Bônus de Liderança e Ranking (Baseado no faturamento total dele + esta venda)
+            const newTotalSales = (Number(profile.total_sales || 0)) + orderAmount;
             const sortedConfig = [...leadershipBonusConfig].sort((a, b) => b.threshold - a.threshold);
             const currentRankConfig = sortedConfig.find(c => newTotalSales >= c.threshold);
 
@@ -269,7 +275,8 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
 
             const totalBonusToAdd = commissionAmount + leadershipBonus;
 
-            await supabase
+            // Transação de Atualização de Saldo
+            const { error: updateError } = await supabase
               .from('user_profiles')
               .update({
                 balance: (Number(profile.balance || 0)) + totalBonusToAdd,
@@ -280,18 +287,29 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
               })
               .eq('id', profile.id);
 
-            // Apenas para o 1º nível, registramos que o bonús de liderança ajudou na compra atual
-            if (level === 0 && leadershipBonus > 0) {
-               await supabase
-                 .from('orders')
-                 .update({ leadership_bonus_amount: leadershipBonus })
-                 .eq('id', orderId);
+            if (updateError) {
+              console.error(`FALHA NO PAGAMENTO Nível ${level + 1} (${profile.email}):`, updateError);
+              toast.error(`Erro no pagamento nível ${level+1}: ${updateError.message}`);
+            } else {
+              console.log(`PAGAMENTO Nível ${level+1} OK: ${profile.email} recebeu R$ ${totalBonusToAdd}`);
             }
 
-            // Sobe um nível e repete o repasse
+            // Se for o primeiro nível (quem vendeu), registrar informações no pedido
+            if (level === 0) {
+              const orderUpdate: any = {};
+              if (leadershipBonus > 0) orderUpdate.leadership_bonus_amount = leadershipBonus;
+              orderUpdate.commission_amount = commissionAmount; // Registra o valor pago ao nível 1
+
+              await supabase
+                .from('orders')
+                .update(orderUpdate)
+                .eq('id', orderId);
+            }
+
+            // SUBIR PARA O PRÓXIMO NÍVEL (Pai/Referrer)
             currentAffiliateId = profile.referrer_id;
           }
-      }
+        }
 
       const { error } = await supabase
         .from('orders')

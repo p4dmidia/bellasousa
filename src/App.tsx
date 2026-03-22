@@ -33,23 +33,23 @@ export default function App() {
     const savedView = localStorage.getItem('bella_sousa_view');
     const path = window.location.pathname;
     
-    // Rotas Explícitas digitadas dão prioridade à mudança de tela
+    // 1. Prioridade Absoluta: URL direta digitada pelo usuário
+    if (path === '/admin' || window.location.hash === '#admin') return 'admin-login';
     if (path === '/loja') return 'store';
     if (path === '/cadastro') return 'affiliate';
     if (path === '/login') return 'login';
-    if (path === '/admin') return 'admin-login';
-    if (window.location.hash === '#admin') return 'admin-login';
 
-    // Se estiver na raiz e tiver memória salva, resgatamos ela (recarregou a pág F5)
+    // 2. Prioridade Secundária: Memória do navegador (F5/Reload)
     if (savedView) {
-      // Pequena validação para se a memória é compatível e limpar URL
       return savedView as 'home' | 'store' | 'product' | 'cart' | 'checkout' | 'affiliate' | 'login' | 'dashboard' | 'admin-login' | 'admin-dashboard';
     }
 
     return 'home';
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
+    return localStorage.getItem('bella_sousa_admin_session') === 'true';
+  });
   const [cart, setCart] = useState<CartItem[]>(() => {
     const savedCart = localStorage.getItem('bella_sousa_cart');
     if (savedCart) {
