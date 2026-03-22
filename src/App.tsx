@@ -33,17 +33,20 @@ export default function App() {
     const savedView = localStorage.getItem('bella_sousa_view');
     const path = window.location.pathname;
     
-    // Se o usuário guardou um view no localStorage, mantemos ele a todo custo no reload
+    // Rotas Explícitas digitadas dão prioridade à mudança de tela
+    if (path === '/loja') return 'store';
+    if (path === '/cadastro') return 'affiliate';
+    if (path === '/login') return 'login';
+    if (path === '/admin') return 'admin-login';
+    if (window.location.hash === '#admin') return 'admin-login';
+
+    // Se estiver na raiz e tiver memória salva, resgatamos ela (recarregou a pág F5)
     if (savedView) {
+      // Pequena validação para se a memória é compatível e limpar URL
       return savedView as 'home' | 'store' | 'product' | 'cart' | 'checkout' | 'affiliate' | 'login' | 'dashboard' | 'admin-login' | 'admin-dashboard';
     }
 
-    // Apenas se for uma sessão virgem recém iniciada, usamos a URL
-    return path === '/loja' ? 'store' 
-         : path === '/cadastro' ? 'affiliate' 
-         : path === '/login' ? 'login'
-         : (path === '/admin' || window.location.hash === '#admin') ? 'admin-login'
-         : 'home';
+    return 'home';
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
