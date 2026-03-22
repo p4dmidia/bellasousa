@@ -50,7 +50,10 @@ export function Login({ onBack, onSwitchToRegister, onLoginSuccess }: { onBack: 
         });
 
         if (error) {
-            toast.error("Erro ao entrar: " + error.message);
+            const message = error.message === 'Invalid login credentials' 
+                ? "E-mail ou senha incorretos." 
+                : "Erro ao entrar: " + error.message;
+            toast.error(message);
         } else {
             onLoginSuccess();
         }

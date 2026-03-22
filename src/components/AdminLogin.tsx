@@ -61,7 +61,10 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
                 onLoginSuccess();
             }
         } catch (err: any) {
-            toast.error("Erro no login: " + err.message);
+            const message = err.message === 'Invalid login credentials' 
+                ? "E-mail ou senha de administrador incorretos." 
+                : "Erro no login: " + err.message;
+            toast.error(message);
         } finally {
             setLoading(false);
         }

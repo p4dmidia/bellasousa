@@ -16,6 +16,7 @@ import PWAInstallPrompt from './components/PWAInstallPrompt';
 import { useState, useEffect } from 'react';
 import { captureReferral } from './lib/referral';
 import { motion, AnimatePresence } from 'motion/react';
+import { Toaster } from 'react-hot-toast';
 
 interface CartItem {
   id: number;
@@ -301,6 +302,7 @@ export default function App() {
 
       </AnimatePresence>
       <PWAInstallPrompt />
+      <Toaster position="top-right" reverseOrder={false} />
     </div>
   );
 }

@@ -57,8 +57,14 @@ serve(async (req) => {
     let commission_amount = 0;
     if (resolved_affiliate_id && items && items.length > 0) {
       if (configData && configData.level_commissions && configData.level_commissions.length > 0) {
-        const directRate = parseFloat(configData.level_commissions[0]) / 100;
-        commission_amount = total_amount * directRate;
+        const rateOrValue = parseFloat(configData.level_commissions[0]);
+        const isFixed = configData.commission_type === 'fixed';
+        
+        if (isFixed) {
+          commission_amount = rateOrValue; // Fixed value per order
+        } else {
+          commission_amount = total_amount * (rateOrValue / 100);
+        }
       } else {
         commission_amount = total_amount * 0.10; // Fallback to 10%
       }

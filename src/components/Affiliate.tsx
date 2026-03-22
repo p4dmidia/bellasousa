@@ -12,7 +12,6 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
         whatsapp: '',
         email: '',
         city: '',
-        cpf: '',
         password: '',
         pixKey: ''
     });
@@ -38,7 +37,6 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
                     full_name: formData.fullName,
                     whatsapp: formData.whatsapp,
                     city: formData.city,
-                    cpf: formData.cpf,
                     pix_key: formData.pixKey,
                     login: formData.email.split('@')[0], // Default login as part of email
                     organization_id: ORGANIZATION_ID,
@@ -240,11 +238,6 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
                                     <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Cidade / UF</label>
                                     <input required type="text" placeholder="São Paulo - SP" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light text-black" 
                                         value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">CPF (Apenas números)</label>
-                                    <input required type="text" placeholder="000.000.000-00" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all font-light text-black" 
-                                        value={formData.cpf} onChange={e => setFormData({...formData, cpf: e.target.value.replace(/\D/g, '')})} />
                                 </div>
                             </div>
 

@@ -44,7 +44,7 @@ serve(async (req) => {
         // Fetch Dynamic Config
         const { data: configData } = await supabase
           .from('site_configs')
-          .select('leadership_bonus_config')
+          .select('leadership_bonus_config, commission_type')
           .eq('organization_id', orderData.organization_id)
           .maybeSingle();
 
@@ -69,7 +69,10 @@ serve(async (req) => {
           let newRank = profile.rank || 'Consultor';
 
           if (currentRankConfig) {
-            leadershipBonus = orderAmount * (currentRankConfig.percentage / 100);
+            const isFixed = configData?.commission_type === 'fixed';
+            leadershipBonus = isFixed 
+              ? Number(currentRankConfig.percentage || 0) 
+              : orderAmount * (Number(currentRankConfig.percentage || 0) / 100);
             newRank = currentRankConfig.name;
           }
 

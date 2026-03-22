@@ -990,7 +990,9 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                           </div>
                           
                           <div className="w-24">
-                            <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 block mb-1">Bônus (%)</label>
+                            <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 block mb-1">
+                              Bônus ({commissionType === 'percentage' ? '%' : 'R$'})
+                            </label>
                             <div className="flex items-center gap-1">
                               <input 
                                 type="number" 
@@ -1002,7 +1004,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                                 }}
                                 className="w-full bg-transparent border-b border-white/10 text-white focus:border-accent outline-none font-medium text-sm text-right" 
                               />
-                              <span className="text-slate-500">%</span>
+                              <span className="text-slate-500">{commissionType === 'percentage' ? '%' : 'R$'}</span>
                             </div>
                           </div>
                           
