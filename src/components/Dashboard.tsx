@@ -151,15 +151,15 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
       if (profileData) {
         setProfile(profileData);
         
-        // Fetch Leadership Config
-        const { data: configData } = await supabase
+        // Fetch Configs
+        const { data: siteConfig } = await supabase
           .from('site_configs')
-          .select('leadership_bonus_config')
+          .select('leadership_bonus_config, commission_type, level_commissions')
           .eq('organization_id', ORGANIZATION_ID)
           .maybeSingle();
 
-        if (configData?.leadership_bonus_config) {
-          setLeadershipConfig(configData.leadership_bonus_config);
+        if (siteConfig?.leadership_bonus_config) {
+          setLeadershipConfig(siteConfig.leadership_bonus_config);
         }
         
         const userOrgId = profileData.organization_id || ORGANIZATION_ID;
@@ -231,17 +231,33 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
 
         setMyOrders(myCommOrders);
 
-        // 4. Calculate Stats
+        // 4. Calculate Stats & Potential Commissions
+        const commType = siteConfig?.commission_type || 'percentage';
+        const commLevels = siteConfig?.level_commissions || ['10', '5', '3', '2', '1'];
+
         const pendingOrders = myCommOrders.filter(o => o.status === 'pending');
         
         const calculatedBalance = profileData.balance || 0;
         const calculatedSales = profileData.total_sales || 0;
-        const pendingSales = pendingOrders.reduce((acc, o) => acc + (o.total_amount || 0), 0);
+        
+        // Calculate pending commission: use stored value or calculate based on level 1 (seller)
+        const pendingCommission = pendingOrders.reduce((acc, o) => {
+          if (o.commission_amount > 0) return acc + o.commission_amount;
+          
+          // Fallback calculation for Level 1 (assuming the user in dashboard is the seller)
+          const isSeller = o.affiliate_id === user.id;
+          if (isSeller) {
+            const level1Comm = Number(commLevels[0] || 0);
+            const amount = commType === 'fixed' ? level1Comm : (o.total_amount || 0) * (level1Comm / 100);
+            return acc + amount;
+          }
+          return acc;
+        }, 0);
         
         setStats([
           { label: 'Saldo Disponível', value: `R$ ${calculatedBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Wallet className="w-5 h-5" />, trend: 'Disponível', color: 'bg-green-500' },
+          { label: 'Comissão a Liberar', value: `R$ ${pendingCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Clock className="w-5 h-5" />, trend: 'Pendente', color: 'bg-yellow-500' },
           { label: 'Consultoras Diretas', value: network.length.toString(), icon: <Users className="w-5 h-5" />, trend: 'Rede', color: 'bg-blue-500' },
-          { label: 'Vendas Pendentes', value: `R$ ${pendingSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <ShoppingCart className="w-5 h-5" />, trend: 'Aguardando', color: 'bg-yellow-500' },
           { label: 'Total de Vendas', value: `R$ ${calculatedSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Zap className="w-5 h-5" />, trend: 'Confirmado', color: 'bg-orange-500' },
         ]);
 

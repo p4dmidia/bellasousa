@@ -46,7 +46,9 @@ export default function App() {
 
     return 'home';
   });
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return localStorage.getItem('bella_sousa_user_session') === 'true';
+  });
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
     return localStorage.getItem('bella_sousa_admin_session') === 'true';
   });
@@ -63,7 +65,10 @@ export default function App() {
   });
   const [filterCategory, setFilterCategory] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedProduct, setSelectedProduct] = useState<any>(() => {
+    const saved = localStorage.getItem('bella_sousa_selected_product');
+    return saved ? JSON.parse(saved) : null;
+  });
 
   // 1. Session and URL management
   useEffect(() => {
@@ -74,11 +79,21 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setIsLoggedIn(true);
+        localStorage.setItem('bella_sousa_user_session', 'true');
+      } else {
+        setIsLoggedIn(false);
+        localStorage.removeItem('bella_sousa_user_session');
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(!!session);
+      const isLogged = !!session;
+      setIsLoggedIn(isLogged);
+      if (isLogged) {
+        localStorage.setItem('bella_sousa_user_session', 'true');
+      } else {
+        localStorage.removeItem('bella_sousa_user_session');
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -92,6 +107,14 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('bella_sousa_view', view);
   }, [view]);
+
+  useEffect(() => {
+    if (selectedProduct) {
+      localStorage.setItem('bella_sousa_selected_product', JSON.stringify(selectedProduct));
+    } else {
+      localStorage.removeItem('bella_sousa_selected_product');
+    }
+  }, [selectedProduct]);
 
   const navigateToStore = (category?: string) => {
     if (category) setFilterCategory(category);
@@ -292,8 +315,11 @@ export default function App() {
             className="flex-1"
           >
             <Dashboard 
-              onLogout={() => {
+              onLogout={async () => {
+                await supabase.auth.signOut();
                 setIsLoggedIn(false);
+                localStorage.removeItem('bella_sousa_user_session');
+                localStorage.removeItem('bella_sousa_view');
                 setView('home');
               }} 
               onNavigateHome={() => setView('home')}
@@ -329,8 +355,11 @@ export default function App() {
             className="flex-1"
           >
             <AdminDashboard 
-              onLogout={() => {
+              onLogout={async () => {
+                await supabase.auth.signOut();
                 setIsAdminLoggedIn(false);
+                localStorage.removeItem('bella_sousa_admin_session');
+                localStorage.removeItem('bella_sousa_view');
                 setView('home');
               }} 
               onNavigateHome={() => setView('home')}

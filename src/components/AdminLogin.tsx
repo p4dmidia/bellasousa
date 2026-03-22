@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import toast from 'react-hot-toast';
 import { motion } from 'motion/react';
 import { Mail, Lock, ArrowRight, ShieldCheck, ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { supabase, ORGANIZATION_ID } from '../lib/supabase';
+import { toast as hotToast } from 'react-hot-toast';
 
 interface AdminLoginProps {
     onBack: () => void;
@@ -42,17 +42,17 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
                     // we might want to check the user metadata as a last resort or just fail gracefully.
                     if (email === 'admin@bellasousa.com.br' && !profileError) {
                          // If profile exists but role is wrong
-                         if (profile && profile.role !== 'admin') {
+                          if (profile && profile.role !== 'admin') {
                             await supabase.auth.signOut();
-                            toast.error("Este usuário existe mas tem o cargo '" + profile.role + "' e não 'admin'.");
+                            hotToast.error("Este usuário existe mas tem o cargo '" + profile.role + "' e não 'admin'.");
                             setLoading(false);
                             return;
-                         }
+                          }
                     }
                     
                     if (profileError || !profile) {
                         await supabase.auth.signOut();
-                        toast.error("Perfil não encontrado ou erro de permissão (406). Verifique as políticas de RLS.");
+                        hotToast.error("Perfil não encontrado ou erro de permissão (406). Verifique as políticas de RLS.");
                         setLoading(false);
                         return;
                     }
@@ -64,10 +64,11 @@ export function AdminLogin({ onBack, onLoginSuccess }: AdminLoginProps) {
                 onLoginSuccess();
             }
         } catch (err: any) {
+            console.error("Login Admin Error:", err);
             const message = err.message === 'Invalid login credentials' 
                 ? "E-mail ou senha de administrador incorretos." 
                 : "Erro no login: " + err.message;
-            toast.error(message);
+            hotToast.error(message);
         } finally {
             setLoading(false);
         }

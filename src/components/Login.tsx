@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
 import { Mail, Lock, ArrowRight, UserPlus, HelpCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast as hotToast } from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
 
 export function Login({ onBack, onSwitchToRegister, onLoginSuccess }: { onBack: () => void, onSwitchToRegister: () => void, onLoginSuccess: () => void }) {
@@ -30,7 +30,7 @@ export function Login({ onBack, onSwitchToRegister, onLoginSuccess }: { onBack: 
                 .maybeSingle();
 
             if (profileError) {
-                toast.error("Erro ao verificar identificador: " + profileError.message);
+                hotToast.error("Erro ao verificar identificador: " + profileError.message);
                 setLoading(false);
                 return;
             }
@@ -38,7 +38,7 @@ export function Login({ onBack, onSwitchToRegister, onLoginSuccess }: { onBack: 
             if (profile?.email) {
                 loginEmail = profile.email;
             } else {
-                toast.error("Usuário não encontrado.");
+                hotToast.error("Usuário não encontrado.");
                 setLoading(false);
                 return;
             }
@@ -53,7 +53,7 @@ export function Login({ onBack, onSwitchToRegister, onLoginSuccess }: { onBack: 
             const message = error.message === 'Invalid login credentials' 
                 ? "E-mail ou senha incorretos." 
                 : "Erro ao entrar: " + error.message;
-            toast.error(message);
+            hotToast.error(message);
         } else {
             onLoginSuccess();
         }

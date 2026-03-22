@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { motion } from 'motion/react';
 import { Users, TrendingUp, Award, CheckCircle2, ArrowRight, DollarSign, Zap, Loader2 } from 'lucide-react';
@@ -15,6 +15,35 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
         password: '',
         pixKey: ''
     });
+    const [selectedAffiliate, setSelectedAffiliate] = useState<any>(null);
+    const [isAffiliateLoading, setIsAffiliateLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchReferrer = async () => {
+            const ref = getStoredReferral();
+            if (ref) {
+                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
+                let query = supabase.from('user_profiles').select('id, email, full_name, nome');
+                
+                if (isUUID) {
+                    query = query.or(`id.eq."${ref}",email.ilike."${ref}",login.eq."${ref}"`);
+                } else {
+                    const sanitizedCpf = ref.replace(/\D/g, '');
+                    query = query.or(`email.ilike."${ref}",login.eq."${ref}",cpf.eq."${ref}",cpf.eq."${sanitizedCpf}"`);
+                }
+
+                const { data, error } = await query
+                    .eq('organization_id', ORGANIZATION_ID)
+                    .maybeSingle();
+                
+                if (!error && data) {
+                    setSelectedAffiliate(data);
+                }
+            }
+            setIsAffiliateLoading(false);
+        };
+        fetchReferrer();
+    }, []);
 
     const handleSubmit = async (e: any) => {
         e.preventDefault();
@@ -216,6 +245,24 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
                             <h2 className="text-primary text-3xl md:text-4xl font-serif mb-4">Faça Parte da Elite</h2>
                             <p className="text-slate-500 font-light">Crie sua conta agora para acessar seu Escritório Virtual Bella Sousa.</p>
                         </div>
+
+                        {selectedAffiliate && (
+                            <motion.div 
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                className="bg-green-50/50 border border-green-100 p-4 rounded-2xl flex items-center justify-between mb-8"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="size-8 bg-green-500/10 rounded-full flex items-center justify-center">
+                                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-green-600 font-bold uppercase tracking-widest leading-tight">Consultora que te Indicou</p>
+                                        <p className="text-xs text-primary font-bold">{selectedAffiliate.full_name || selectedAffiliate.email?.split('@')[0] || 'Consultora'}</p>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
 
                         <form onSubmit={handleSubmit} className="space-y-8">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
