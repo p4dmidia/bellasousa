@@ -14,6 +14,7 @@ import { AdminLogin } from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import { useState, useEffect } from 'react';
+import { supabase } from './lib/supabase';
 import { captureReferral } from './lib/referral';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster } from 'react-hot-toast';
@@ -36,24 +37,52 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
+  // 1. Restore Cart and Session
   useEffect(() => {
+    const savedCart = localStorage.getItem('bella_sousa_cart');
+    if (savedCart) {
+      try {
+        setCart(JSON.parse(savedCart));
+      } catch (e) {}
+    }
+
+    const savedView = localStorage.getItem('bella_sousa_view');
     // 1. Capture referral code and clean URL (30-day persistence)
     captureReferral();
 
     // 2. Handle sub-paths (alternative to hash router)
     const path = window.location.pathname;
-    if (path === '/loja') {
-      setView('store');
-    } else if (path === '/cadastro') {
-      setView('affiliate');
-    } else if (path === '/login') {
-      setView('login');
-    } else if (path === '/admin') {
-      setView('admin-login');
-    } else if (window.location.hash === '#admin') {
-      setView('admin-login');
-    }
+    const initialView = path === '/loja' ? 'store' 
+                     : path === '/cadastro' ? 'affiliate' 
+                     : path === '/login' ? 'login'
+                     : path === '/admin' ? 'admin-login'
+                     : window.location.hash === '#admin' ? 'admin-login'
+                     : savedView ? (savedView as any) : 'home';
+                     
+    setView(initialView);
+
+    // 3. Restore Supabase Auth
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setIsLoggedIn(true);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  // Save changes to LocalStorage
+  useEffect(() => {
+    localStorage.setItem('bella_sousa_cart', JSON.stringify(cart));
+  }, [cart]);
+
+  useEffect(() => {
+    localStorage.setItem('bella_sousa_view', view);
+  }, [view]);
 
   const navigateToStore = (category?: string) => {
     if (category) setFilterCategory(category);

@@ -1,0 +1,22 @@
+[
+  "id",
+  "mocha_user_id",
+  "cpf",
+  "role",
+  "is_active",
+  "sponsor_id",
+  "company_name",
+  "created_at",
+  "updated_at",
+  "email",
+  "organization_id",
+  "avatar_url",
+  "referrer_id",
+  "registration_type",
+  "status",
+  "cnpj",
+  "total_sales",
+  "rank",
+  "leadership_bonus_total",
+  "login"
+]
