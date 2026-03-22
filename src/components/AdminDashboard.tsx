@@ -225,6 +225,74 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
 
   const handleUpdateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
+      setLoading(true);
+      const orderToUpdate = orders.find(o => o.id === orderId);
+      if (!orderToUpdate) throw new Error("Pedido não encontrado");
+
+      // Se está marcando como concluído e era pendente, distribui MMN e ranking
+      if (newStatus === 'completed' && orderToUpdate.status !== 'completed' && orderToUpdate.affiliate_id) {
+          const orderAmount = Number(orderToUpdate.total_amount || 0);
+          const isFixed = commissionType === 'fixed';
+          let currentAffiliateId = orderToUpdate.affiliate_id;
+
+          for (let level = 0; level < levelCommissions.length; level++) {
+            if (!currentAffiliateId) break;
+
+            const commissionValue = Number(levelCommissions[level] || 0);
+            const commissionAmount = isFixed ? commissionValue : orderAmount * (commissionValue / 100);
+
+            // Busca os dados do perfil pra incrementar somando ao saldo atual
+            const { data: profile } = await supabase
+              .from('user_profiles')
+              .select('id, balance, total_earnings, total_sales, rank, leadership_bonus_total, referrer_id')
+              .eq('id', currentAffiliateId)
+              .single();
+
+            if (!profile) break;
+
+            const currentTotalSales = Number(profile.total_sales || 0);
+            const newTotalSales = currentTotalSales + orderAmount;
+            
+            // Lógica de Bônus e Plano de Carreira 
+            const sortedConfig = [...leadershipBonusConfig].sort((a, b) => b.threshold - a.threshold);
+            const currentRankConfig = sortedConfig.find(c => newTotalSales >= c.threshold);
+
+            let leadershipBonus = 0;
+            let newRank = profile.rank || 'Consultor';
+
+            if (currentRankConfig) {
+              leadershipBonus = isFixed 
+                ? Number(currentRankConfig.percentage || 0) 
+                : orderAmount * (Number(currentRankConfig.percentage || 0) / 100);
+              newRank = currentRankConfig.name;
+            }
+
+            const totalBonusToAdd = commissionAmount + leadershipBonus;
+
+            await supabase
+              .from('user_profiles')
+              .update({
+                balance: (Number(profile.balance || 0)) + totalBonusToAdd,
+                total_earnings: (Number(profile.total_earnings || 0)) + totalBonusToAdd,
+                total_sales: newTotalSales,
+                rank: newRank,
+                leadership_bonus_total: (Number(profile.leadership_bonus_total || 0)) + leadershipBonus
+              })
+              .eq('id', profile.id);
+
+            // Apenas para o 1º nível, registramos que o bonús de liderança ajudou na compra atual
+            if (level === 0 && leadershipBonus > 0) {
+               await supabase
+                 .from('orders')
+                 .update({ leadership_bonus_amount: leadershipBonus })
+                 .eq('id', orderId);
+            }
+
+            // Sobe um nível e repete o repasse
+            currentAffiliateId = profile.referrer_id;
+          }
+      }
+
       const { error } = await supabase
         .from('orders')
         .update({ status: newStatus })
@@ -239,6 +307,8 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
       }
     } catch (error: any) {
       toast.error(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
