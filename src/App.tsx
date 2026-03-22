@@ -29,39 +29,45 @@ interface CartItem {
 }
 
 export default function App() {
-  const [view, setView] = useState<'home' | 'store' | 'product' | 'cart' | 'checkout' | 'affiliate' | 'login' | 'dashboard' | 'admin-login' | 'admin-dashboard'>('home');
+  const [view, setView] = useState<'home' | 'store' | 'product' | 'cart' | 'checkout' | 'affiliate' | 'login' | 'dashboard' | 'admin-login' | 'admin-dashboard'>(() => {
+    const savedView = localStorage.getItem('bella_sousa_view');
+    const path = window.location.pathname;
+    
+    // Se o usuário guardou um view no localStorage, mantemos ele a todo custo no reload
+    if (savedView) {
+      return savedView as 'home' | 'store' | 'product' | 'cart' | 'checkout' | 'affiliate' | 'login' | 'dashboard' | 'admin-login' | 'admin-dashboard';
+    }
+
+    // Apenas se for uma sessão virgem recém iniciada, usamos a URL
+    return path === '/loja' ? 'store' 
+         : path === '/cadastro' ? 'affiliate' 
+         : path === '/login' ? 'login'
+         : (path === '/admin' || window.location.hash === '#admin') ? 'admin-login'
+         : 'home';
+  });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    const savedCart = localStorage.getItem('bella_sousa_cart');
+    if (savedCart) {
+      try {
+        return JSON.parse(savedCart);
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
   const [filterCategory, setFilterCategory] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
-  // 1. Restore Cart and Session
+  // 1. Session and URL management
   useEffect(() => {
-    const savedCart = localStorage.getItem('bella_sousa_cart');
-    if (savedCart) {
-      try {
-        setCart(JSON.parse(savedCart));
-      } catch (e) {}
-    }
-
-    const savedView = localStorage.getItem('bella_sousa_view');
-    // 1. Capture referral code and clean URL (30-day persistence)
+    // Capture referral code and clean URL (30-day persistence)
     captureReferral();
 
-    // 2. Handle sub-paths (alternative to hash router)
-    const path = window.location.pathname;
-    const initialView = path === '/loja' ? 'store' 
-                     : path === '/cadastro' ? 'affiliate' 
-                     : path === '/login' ? 'login'
-                     : path === '/admin' ? 'admin-login'
-                     : window.location.hash === '#admin' ? 'admin-login'
-                     : savedView ? (savedView as any) : 'home';
-                     
-    setView(initialView);
-
-    // 3. Restore Supabase Auth
+    // 2. Restore Supabase Auth
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setIsLoggedIn(true);

@@ -305,6 +305,17 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
       if (selectedOrder?.id === orderId) {
         setSelectedOrder({ ...selectedOrder, status: newStatus });
       }
+
+      // Atualiza a lista de afiliados em tempo real na view pra mostrar os saldos novos do MMN
+      if (newStatus === 'completed') {
+        const { data: updatedAffiliates } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('organization_id', ORGANIZATION_ID);
+        if (updatedAffiliates) {
+          setAffiliates(updatedAffiliates);
+        }
+      }
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -354,13 +365,10 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
   ];
 
   const filteredAffiliates = affiliates.map(a => {
-    const affiliateOrders = completedOrders.filter(o => o.affiliate_id === a.id || o.referrer_id === a.id);
-    const calculatedSales = affiliateOrders.reduce((acc, o) => acc + (o.total_amount || 0), 0);
-    const calculatedCommission = affiliateOrders.reduce((acc, o) => acc + (o.commission_amount || 0), 0);
     return {
       ...a,
-      total_sales: calculatedSales > 0 ? calculatedSales : (a.total_sales || 0),
-      balance: calculatedCommission > 0 ? calculatedCommission : (a.balance || 0)
+      total_sales: a.total_sales || 0,
+      balance: a.balance || 0
     };
   }).filter(a => 
     (a.email || "").toLowerCase().includes(affiliateSearch.toLowerCase()) ||
