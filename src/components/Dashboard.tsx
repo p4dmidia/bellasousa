@@ -232,11 +232,10 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         setMyOrders(myCommOrders);
 
         // 4. Calculate Stats
-        const completedOrders = myCommOrders.filter(o => o.status === 'completed');
         const pendingOrders = myCommOrders.filter(o => o.status === 'pending');
         
-        const calculatedBalance = completedOrders.reduce((acc, o) => acc + (o.commission_amount || 0), 0);
-        const calculatedSales = completedOrders.reduce((acc, o) => acc + (o.total_amount || 0), 0);
+        const calculatedBalance = profileData.balance || 0;
+        const calculatedSales = profileData.total_sales || 0;
         const pendingSales = pendingOrders.reduce((acc, o) => acc + (o.total_amount || 0), 0);
         
         setStats([
