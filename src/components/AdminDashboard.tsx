@@ -21,7 +21,8 @@ import {
   EyeOff,
   Edit3,
   UserX,
-  UserCheck
+  UserCheck,
+  Menu
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import toast, { Toaster } from 'react-hot-toast';
@@ -44,6 +45,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
   const [productSearch, setProductSearch] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [activeModalTab, setActiveModalTab] = useState<'details' | 'sales' | 'network'>('details');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Commission Config State
   const [shopName, setShopName] = useState('Bella Sousa');
@@ -93,11 +95,14 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
           .eq('organization_id', ORGANIZATION_ID);
 
         // Fetch Orders
-        const { data: ordersData } = await supabase
+        const { data: ordersData, error: ordersError } = await supabase
           .from('orders')
           .select(`*`)
           .eq('organization_id', ORGANIZATION_ID)
           .order('created_at', { ascending: false });
+
+        if (ordersError) console.error("AdminDashboard: Orders fetch error:", ordersError);
+        console.log("AdminDashboard: Orders loaded:", ordersData?.length || 0);
 
         // Fetch Configs
         const { data: configData } = await supabase
@@ -467,18 +472,43 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
   };
 
   return (
-    <div className="flex h-screen bg-[#130d0d] text-white overflow-hidden">
+    <div className="flex h-screen bg-[#130d0d] text-white overflow-hidden relative">
       <Toaster position="top-right" toastOptions={{ style: { background: '#333', color: '#fff' } }} />
+      
+      {/* Mobile Top Bar */}
+      <div className="md:hidden flex items-center justify-between p-4 bg-[#1a1414] border-b border-accent/10 fixed top-0 left-0 right-0 z-40">
+        <div className="flex items-center gap-2">
+           <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
+              <CheckCircle className="w-4 h-4 text-primary" />
+           </div>
+           <h2 className="text-lg font-serif text-white">Admin</h2>
+        </div>
+        <button 
+          onClick={() => setIsSidebarOpen(true)}
+          className="p-2 bg-accent/10 text-accent rounded-xl"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+      </div>
+
       {/* Sidebar Admin */}
-      <aside className="w-64 bg-[#1a1414] border-r border-accent/10 flex flex-col hidden md:flex">
-        <div className="p-8 border-b border-accent/10">
-          <h2 className="text-2xl font-serif text-white">Bella Sousa</h2>
-          <p className="text-accent text-[10px] font-bold uppercase tracking-widest mt-1">Admin Panel</p>
+      <aside className={`w-64 bg-[#1a1414] border-r border-accent/10 flex flex-col fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="p-8 border-b border-accent/10 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-serif text-white">Bella Sousa</h2>
+            <p className="text-accent text-[10px] font-bold uppercase tracking-widest mt-1">Admin Panel</p>
+          </div>
+          <button 
+            onClick={() => setIsSidebarOpen(false)}
+            className="md:hidden p-2 text-slate-400 hover:text-white"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           <button
-            onClick={() => setActiveTab('overview')}
+            onClick={() => { setActiveTab('overview'); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${
               activeTab === 'overview' ? 'bg-accent text-primary' : 'text-slate-400 hover:bg-white/5 hover:text-white'
             }`}
@@ -488,7 +518,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
           </button>
           
           <button
-            onClick={() => setActiveTab('products')}
+            onClick={() => { setActiveTab('products'); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${
               activeTab === 'products' ? 'bg-accent text-primary' : 'text-slate-400 hover:bg-white/5 hover:text-white'
             }`}
@@ -498,7 +528,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
           </button>
 
           <button
-            onClick={() => setActiveTab('affiliates')}
+            onClick={() => { setActiveTab('affiliates'); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${
               activeTab === 'affiliates' ? 'bg-accent text-primary' : 'text-slate-400 hover:bg-white/5 hover:text-white'
             }`}
@@ -508,7 +538,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
           </button>
 
             <button 
-              onClick={() => setActiveTab('orders')}
+              onClick={() => { setActiveTab('orders'); setIsSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'orders' ? 'bg-accent text-primary font-bold shadow-lg shadow-accent/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
             >
               <ShoppingCart className={`w-5 h-5 ${activeTab === 'orders' ? 'animate-pulse' : ''}`} />
@@ -516,7 +546,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
             </button>
 
           <button
-            onClick={() => setActiveTab('settings')}
+            onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${
               activeTab === 'settings' ? 'bg-accent text-primary' : 'text-slate-400 hover:bg-white/5 hover:text-white'
             }`}
@@ -544,8 +574,15 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto bg-[#130d0d]">
-        <div className="p-8 lg:p-12 max-w-7xl mx-auto space-y-8">
+      <main className="flex-1 overflow-y-auto bg-[#130d0d] pt-20 md:pt-0">
+        {/* Mobile Sidebar Overlay */}
+        {isSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
+        <div className="p-4 md:p-8 lg:p-12 max-w-7xl mx-auto space-y-8">
           
           {/* Header */}
           <div className="flex justify-between items-end">
@@ -641,7 +678,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-6"
               >
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                    <div className="relative">
                       <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                       <input 
@@ -649,7 +686,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                         placeholder="Buscar produto pelo nome..." 
                         value={productSearch}
                         onChange={(e) => setProductSearch(e.target.value)}
-                        className="bg-[#1a1414] border border-accent/10 text-white placeholder-slate-500 rounded-xl pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-accent w-64"
+                        className="bg-[#1a1414] border border-accent/10 text-white placeholder-slate-500 rounded-xl pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-accent w-full md:w-64"
                       />
                    </div>
                    <button 
@@ -658,14 +695,15 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                         setNewProduct({ name: '', price: '', stock: '', description: '', image_url: '', category: 'Lingerie' });
                         setShowNewProductModal(true);
                       }}
-                     className="flex items-center gap-2 bg-accent text-primary px-4 py-2 rounded-xl text-sm font-bold hover:bg-accent/90 transition-colors"
+                     className="w-full md:w-auto flex items-center justify-center gap-2 bg-accent text-primary px-4 py-2 rounded-xl text-sm font-bold hover:bg-accent/90 transition-colors"
                    >
                      <Plus className="w-4 h-4" /> Novo Produto
                    </button>
                 </div>
 
                 <div className="bg-[#1a1414] border border-accent/10 rounded-3xl overflow-hidden">
-                  <table className="w-full text-left">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
                     <thead className="bg-[#130d0d] border-b border-accent/10">
                       <tr>
                         <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Produto</th>
@@ -718,6 +756,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                     </tbody>
                   </table>
                 </div>
+              </div>
               </motion.div>
             )}
 
@@ -752,7 +791,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                    <div className="relative">
                       <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                       <input 
@@ -760,22 +799,23 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                         placeholder="Buscar por nome ou ID..." 
                         value={affiliateSearch}
                         onChange={(e) => setAffiliateSearch(e.target.value)}
-                        className="bg-[#1a1414] border border-accent/10 text-white placeholder-slate-500 rounded-xl pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-accent w-72"
+                        className="bg-[#1a1414] border border-accent/10 text-white placeholder-slate-500 rounded-xl pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-accent w-full md:w-72"
                       />
                    </div>
                 </div>
 
                 <div className="bg-[#1a1414] border border-accent/10 rounded-3xl overflow-hidden">
-                  <table className="w-full text-left">
-                    <thead className="bg-[#130d0d] border-b border-accent/10">
-                      <tr>
-                        <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Consultora</th>
-                        <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Patente</th>
-                        <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Faturamento</th>
-                        <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Saldo</th>
-                        <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Ações</th>
-                      </tr>
-                    </thead>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="bg-[#130d0d] border-b border-accent/10">
+                        <tr>
+                          <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Consultora</th>
+                          <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Patente</th>
+                          <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Faturamento</th>
+                          <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Saldo</th>
+                          <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Ações</th>
+                        </tr>
+                      </thead>
                     <tbody className="divide-y divide-white/5">
                       {filteredAffiliates.map((a) => (
                         <tr key={a.id} className="hover:bg-white/5 transition-colors">
@@ -827,8 +867,9 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                     </tbody>
                   </table>
                 </div>
-              </motion.div>
-            )}
+              </div>
+            </motion.div>
+          )}
 
              {/* SETTINGS TAB */}
              {activeTab === 'settings' && (
@@ -1021,6 +1062,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                         <tr>
                           <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">ID Pedido</th>
                           <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Cliente</th>
+                          <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Afiliado</th>
                           <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Valor Total</th>
                           <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500">Status</th>
                           <th className="p-4 text-xs font-bold uppercase tracking-widest text-slate-500 text-right">Ações</th>
@@ -1040,6 +1082,22 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                               <div className="flex flex-col">
                                 <span className="text-sm text-white">{order.email?.split('@')[0] || 'Cliente'}</span>
                                 <span className="text-[10px] text-slate-500">{order.email}</span>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex flex-col">
+                                {order.affiliate_id ? (
+                                  <>
+                                    <span className="text-xs text-white font-medium">
+                                      {affiliates.find(a => a.id === order.affiliate_id)?.full_name || 
+                                       affiliates.find(a => a.id === order.affiliate_id)?.login || 
+                                       'ID: ' + order.affiliate_id.substring(0, 8)}
+                                    </span>
+                                    <span className="text-[9px] text-accent uppercase font-bold tracking-tighter">Comissão: R$ {(order.commission_amount || 0).toFixed(2)}</span>
+                                  </>
+                                ) : (
+                                  <span className="text-[10px] text-slate-500 italic">Venda Direta</span>
+                                )}
                               </div>
                             </td>
                             <td className="p-4 text-sm font-bold text-accent">
@@ -1448,24 +1506,39 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {orders.filter(o => o.referrer_id === selectedAffiliate.id).map((sale, idx) => (
-                          <tr key={idx} className="hover:bg-white/5 transition-colors">
-                            <td className="p-4 text-xs text-slate-400">{new Date(sale.created_at).toLocaleDateString('pt-BR')}</td>
-                            <td className="p-4 text-xs text-white">{sale.email?.split('@')[0] || 'Cliente'}</td>
-                            <td className="p-4 text-xs text-white">R$ {sale.total_amount?.toFixed(2)}</td>
-                            <td className="p-4 text-xs text-accent font-bold">R$ {(sale.commission_amount || 0).toFixed(2)}</td>
-                            <td className="p-4">
-                              <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${sale.status === 'completed' ? 'bg-green-500/10 text-green-400' : 'bg-yellow-500/10 text-yellow-500'}`}>
-                                {sale.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                        {orders.filter(o => o.referrer_id === selectedAffiliate.id).length === 0 && (
-                          <tr>
-                            <td colSpan={5} className="p-8 text-center text-slate-500 italic">Nenhum pedido vinculado a este afiliado.</td>
-                          </tr>
-                        )}
+                        {(() => {
+                          const affiliateOrders = orders.filter(o => 
+                            (o.affiliate_id && o.affiliate_id.toLowerCase() === selectedAffiliate.id.toLowerCase()) || 
+                            (o.referrer_id && o.referrer_id.toLowerCase() === selectedAffiliate.id.toLowerCase())
+                          );
+                          console.log("AdminDashboard: Modal Tab Sales:", { 
+                            affiliateId: selectedAffiliate.id, 
+                            totalOrders: orders.length, 
+                            filteredCount: affiliateOrders.length 
+                          });
+                          
+                          if (affiliateOrders.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan={5} className="p-8 text-center text-slate-500 italic">Nenhum pedido vinculado a este afiliado.</td>
+                              </tr>
+                            );
+                          }
+
+                          return affiliateOrders.map((sale, idx) => (
+                            <tr key={idx} className="hover:bg-white/5 transition-colors">
+                              <td className="p-4 text-xs text-slate-400">{new Date(sale.created_at).toLocaleDateString('pt-BR')}</td>
+                              <td className="p-4 text-xs text-white">{sale.email?.split('@')[0] || 'Cliente'}</td>
+                              <td className="p-4 text-xs text-white">R$ {sale.total_amount?.toFixed(2)}</td>
+                              <td className="p-4 text-xs text-accent font-bold">R$ {(sale.commission_amount || 0).toFixed(2)}</td>
+                              <td className="p-4">
+                                <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${sale.status === 'completed' ? 'bg-green-500/10 text-green-400' : 'bg-yellow-500/10 text-yellow-500'}`}>
+                                  {sale.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ));
+                        })()}
                       </tbody>
                     </table>
                   </motion.div>

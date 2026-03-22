@@ -14,6 +14,7 @@ import { AdminLogin } from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import { useState, useEffect } from 'react';
+import { captureReferral } from './lib/referral';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface CartItem {
@@ -35,14 +36,8 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
   useEffect(() => {
-    // 1. Capture referral code
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get('ref') || params.get('aff') || params.get('r');
-    if (ref) {
-      console.log("App: Referral code captured:", ref);
-      localStorage.setItem('affiliate_referrer', ref);
-      // Optional: Clean URL but keeping it for now to avoid unexpected behavior with manual routing
-    }
+    // 1. Capture referral code and clean URL (30-day persistence)
+    captureReferral();
 
     // 2. Handle sub-paths (alternative to hash router)
     const path = window.location.pathname;

@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { motion } from 'motion/react';
 import { Users, TrendingUp, Award, CheckCircle2, ArrowRight, DollarSign, Zap, Loader2 } from 'lucide-react';
 import { supabase, ORGANIZATION_ID } from '../lib/supabase';
+import { getStoredReferral } from '../lib/referral';
 
 export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () => void, onSuccess: () => void, onLoginSuccess: (session: any) => void }) {
     const [loading, setLoading] = useState(false);
@@ -20,9 +21,7 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
         e.preventDefault();
         setLoading(true);
 
-        const params = new URLSearchParams(window.location.search);
-        const refFromUrl = params.get('ref') || params.get('aff') || params.get('r');
-        const referrerId = refFromUrl || localStorage.getItem('affiliate_referrer') || undefined;
+        const referrerId = getStoredReferral() || undefined;
 
         console.log("Affiliate Signup: Referrer identified:", referrerId);
 

@@ -13,22 +13,49 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { items, user_info, total_amount, organization_id, affiliate_id, payment_method_id } = body;
+    const { items, user_info, total_amount, organization_id, affiliate_id, referral_code, payment_method_id } = body;
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch Configs for this organization
+    // 1. Resolve referral_code to affiliate_id if provided
+    let resolved_affiliate_id = affiliate_id;
+    
+    if (referral_code) {
+      console.log('Resolving referral_code:', referral_code);
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(referral_code);
+      let query = supabase.from('user_profiles').select('id');
+      
+      if (isUUID) {
+        query = query.or(`id.eq."${referral_code}",email.ilike."${referral_code}",login.eq."${referral_code}"`);
+      } else {
+        const sanitizedCpf = referral_code.replace(/\D/g, '');
+        query = query.or(`email.ilike."${referral_code}",login.eq."${referral_code}",cpf.eq."${referral_code}",cpf.eq."${sanitizedCpf}"`);
+      }
+
+      const { data: affData } = await query
+        .eq('organization_id', organization_id)
+        .maybeSingle();
+
+      if (affData) {
+        resolved_affiliate_id = affData.id;
+        console.log('Affiliate resolved to ID:', resolved_affiliate_id);
+      } else {
+        console.warn('Affiliate NOT found for code:', referral_code);
+      }
+    }
+
+    // 2. Fetch Configs for this organization
     const { data: configData } = await supabase
       .from('site_configs')
       .select('*')
       .eq('organization_id', organization_id)
       .maybeSingle();
 
-    // Calculate commission (Default 10% if no config found)
+    // 3. Calculate commission (Default 10% if no config found)
     let commission_amount = 0;
-    if (affiliate_id && items && items.length > 0) {
+    if (resolved_affiliate_id && items && items.length > 0) {
       if (configData && configData.level_commissions && configData.level_commissions.length > 0) {
         const directRate = parseFloat(configData.level_commissions[0]) / 100;
         commission_amount = total_amount * directRate;
@@ -40,7 +67,7 @@ serve(async (req) => {
     // Generate a unique payment_id for reference
     const order_ref = `WA_${Date.now().toString().slice(-6)}`;
 
-    // Save order in Supabase
+    // 4. Save order in Supabase
     const { data: orderData, error: dbError } = await supabase.from('orders').insert({
       organization_id: organization_id,
       nome: user_info?.name || 'Cliente',
@@ -52,7 +79,7 @@ serve(async (req) => {
       status: 'pending', // WhatsApp orders start as pending
       payment_id: order_ref,
       payment_method: payment_method_id || 'whatsapp',
-      affiliate_id: affiliate_id,
+      affiliate_id: resolved_affiliate_id,
       commission_amount: commission_amount
     }).select().single();
 
