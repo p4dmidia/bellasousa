@@ -189,7 +189,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
           if (!userNode) return null;
 
           const children = list
-            .filter(u => u.referrer_id === uId)
+            .filter(u => (u.referrer_id === uId || u.sponsor_id === uId))
             .map(child => generateTree(child.id, list, rawOrders))
             .filter((node): node is AffiliateNode => node !== null);
 
@@ -199,7 +199,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
 
           return {
             id: userNode.id,
-            name: userNode.full_name || userNode.nome || userNode.email?.split('@')[0] || 'Consultora',
+            name: userNode.login || userNode.email?.split('@')[0] || 'Consultora',
             level: userNode.role === 'affiliate' ? 'Consultora' : (userNode.role || 'Consultora'),
             pts: totalVolume.toLocaleString('pt-BR'),
             image: userNode.avatar_url,
@@ -211,7 +211,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         setTreeData(tree);
 
         // 2. Identify current user's network
-        const network = usersList.filter(u => u.referrer_id === user.id);
+        const network = usersList.filter(u => u.referrer_id === user.id || u.sponsor_id === user.id);
         setMyNetwork(network);
 
         // 3. Identify orders that generate commission for this user
@@ -225,7 +225,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
             const customer = usersList.find(u => u.id === order.user_id);
             return {
               ...order,
-              customer_name: order.nome || order.customer_name || customer?.full_name || customer?.email?.split('@')[0] || 'Cliente'
+              customer_name: order.customer_name || order.nome || customer?.login || customer?.email?.split('@')[0] || 'Cliente'
             };
           });
 
@@ -263,7 +263,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
 
         // 5. Update Profile Form
         setProfileForm({
-           nome: user?.user_metadata?.full_name || user?.user_metadata?.nome || profileData.nome || profileData.full_name || '',
+           nome: user?.user_metadata?.full_name || user?.user_metadata?.nome || profileData.login || '',
            email: user.email || '',
            phone: user?.user_metadata?.phone || user?.user_metadata?.whatsapp || profileData.phone || '',
            cpf: user?.user_metadata?.cpf || profileData.cpf || '',
@@ -405,7 +405,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
             )}
           </div>
           <h2 className="font-serif italic text-xl text-center">
-              {profile?.full_name || currentUser?.user_metadata?.nome || currentUser?.user_metadata?.full_name?.split(' ')[0] || 'Consultora'}
+              {profile?.login || currentUser?.user_metadata?.nome || currentUser?.user_metadata?.full_name?.split(' ')[0] || 'Consultora'}
           </h2>
           <span className="text-[10px] uppercase tracking-widest text-accent font-bold">{profile?.rank || 'Consultor'}</span>
         </div>
@@ -472,7 +472,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
           <div>
             <h1 className="text-xl lg:text-3xl font-serif">Escritório Virtual</h1>
             <p className="hidden lg:block text-slate-500 text-sm">
-                Bem-vinda, {profile?.full_name || currentUser?.user_metadata?.nome || currentUser?.user_metadata?.full_name?.split(' ')[0] || 'Consultora'}
+                Bem-vinda, {profile?.login || currentUser?.user_metadata?.nome || currentUser?.user_metadata?.full_name?.split(' ')[0] || 'Consultora'}
             </p>
           </div>
           <div className="flex items-center gap-6">
@@ -763,7 +763,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                                   {row.full_name?.substring(0,2).toUpperCase()}
                                 </div>
                                 <span className="font-medium text-sm">
-                                    {row.full_name || row.email?.split('@')[0] || 'Consultora'}
+                                    {row.login || row.email?.split('@')[0] || 'Consultora'}
                                 </span>
                               </div>
                             </td>

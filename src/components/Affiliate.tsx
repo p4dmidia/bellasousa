@@ -23,13 +23,13 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
             const ref = getStoredReferral();
             if (ref) {
                 const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
-                let query = supabase.from('user_profiles').select('id, email, full_name, nome');
+                let query = supabase.from('user_profiles').select('id, email, login');
                 
                 if (isUUID) {
-                    query = query.or(`id.eq."${ref}",email.ilike."${ref}",login.eq."${ref}"`);
+                    query = query.or(`id.eq.${ref},email.ilike.${ref},login.eq.${ref}`);
                 } else {
                     const sanitizedCpf = ref.replace(/\D/g, '');
-                    query = query.or(`email.ilike."${ref}",login.eq."${ref}",cpf.eq."${ref}",cpf.eq."${sanitizedCpf}"`);
+                    query = query.or(`email.ilike.${ref},login.eq.${ref},cpf.eq.${ref},cpf.eq.${sanitizedCpf}`);
                 }
 
                 const { data, error } = await query
@@ -257,8 +257,8 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
                                         <CheckCircle2 className="w-4 h-4 text-green-500" />
                                     </div>
                                     <div>
-                                        <p className="text-[10px] text-green-600 font-bold uppercase tracking-widest leading-tight">Consultora que te Indicou</p>
-                                        <p className="text-xs text-primary font-bold">{selectedAffiliate.full_name || selectedAffiliate.email?.split('@')[0] || 'Consultora'}</p>
+                                        <p className="text-[10px] text-green-600 font-bold uppercase tracking-widest leading-tight">Consultora Identificada</p>
+                                        <p className="text-xs text-primary font-bold">{selectedAffiliate.login || selectedAffiliate.email?.split('@')[0] || 'Consultora'}</p>
                                     </div>
                                 </div>
                             </motion.div>

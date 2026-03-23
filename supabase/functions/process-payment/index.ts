@@ -28,10 +28,10 @@ serve(async (req) => {
       let query = supabase.from('user_profiles').select('id');
       
       if (isUUID) {
-        query = query.or(`id.eq."${referral_code}",email.ilike."${referral_code}",login.eq."${referral_code}"`);
+        query = query.or(`id.eq.${referral_code},email.ilike.${referral_code},login.eq.${referral_code}`);
       } else {
         const sanitizedCpf = referral_code.replace(/\D/g, '');
-        query = query.or(`email.ilike."${referral_code}",login.eq."${referral_code}",cpf.eq."${referral_code}",cpf.eq."${sanitizedCpf}"`);
+        query = query.or(`email.ilike.${referral_code},login.eq.${referral_code},cpf.eq.${referral_code},cpf.eq.${sanitizedCpf}`);
       }
 
       const { data: affData } = await query

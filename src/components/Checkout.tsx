@@ -42,11 +42,11 @@ export default function Checkout({
                 let query = supabase.from('user_profiles').select('id, email, cpf, login');
                 
                 if (isUUID) {
-                    query = query.or(`id.eq."${ref}",email.ilike."${ref}",login.eq."${ref}"`);
+                    query = query.or(`id.eq.${ref},email.ilike.${ref},login.eq.${ref}`);
                 } else {
                     // Try email, login or CPF
                     const sanitizedCpf = ref.replace(/\D/g, '');
-                    query = query.or(`email.ilike."${ref}",login.eq."${ref}",cpf.eq."${ref}",cpf.eq."${sanitizedCpf}"`);
+                    query = query.or(`email.ilike.${ref},login.eq.${ref},cpf.eq.${ref},cpf.eq.${sanitizedCpf}`);
                 }
 
                 const { data, error } = await query
@@ -231,7 +231,7 @@ ${itemsList}
                                         </div>
                                         <div>
                                             <p className="text-[10px] text-green-600 font-bold uppercase tracking-widest leading-tight">Consultora Identificada</p>
-                                            <p className="text-xs text-primary font-bold">{selectedAffiliate.email?.split('@')[0] || 'Consultora'}</p>
+                                            <p className="text-xs text-primary font-bold">{selectedAffiliate.login || selectedAffiliate.email?.split('@')[0] || 'Consultora'}</p>
                                         </div>
                                     </div>
                                 </motion.div>

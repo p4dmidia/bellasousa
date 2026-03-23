@@ -247,9 +247,10 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
             console.log(`[MMN] Loop Nível ${level + 1} - Buscando Perfil: ${currentAffiliateId}`);
 
             // Buscar dados oficiais do perfil atual para garantir o saldo mais recente
+            // Removido 'full_name' e 'nome' que não existem na tabela
             const { data: profile, error: fetchError } = await supabase
               .from('user_profiles')
-              .select('id, email, full_name, nome, balance, total_earnings, total_sales, rank, leadership_bonus_total, referrer_id')
+              .select('id, email, balance, total_earnings, total_sales, rank, leadership_bonus_total, referrer_id, sponsor_id')
               .eq('id', currentAffiliateId)
               .single();
 
@@ -258,8 +259,9 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
               break;
             }
 
-            const affiliateIdentifier = profile.email || profile.nome || profile.full_name || profile.id;
-            console.log(`[MMN] Processando Nível ${level + 1}: ${affiliateIdentifier}. Patrocinador: ${profile.referrer_id}`);
+            const affiliateIdentifier = profile.email || profile.id;
+            const parentId = profile.referrer_id || profile.sponsor_id; // Suporte a ambos os campos de hierarquia
+            console.log(`[MMN] Processando Nível ${level + 1}: ${affiliateIdentifier}. Patrocinador: ${parentId}`);
 
             // Cálculo da comissão (Fixa ou Percentual)
             const commissionValue = Number(levelCommissions[level] || 0);
@@ -315,10 +317,10 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                 .eq('id', orderId);
             }
 
-            // SUBIR PARA O PRÓXIMO NÍVEL (Pai/Referrer)
-            if (profile.referrer_id) {
-              console.log(`[MMN] Próximo Nível (${level + 2}) será o patrocinador: ${profile.referrer_id}`);
-              currentAffiliateId = profile.referrer_id;
+            // SUBIR PARA O PRÓXIMO NÍVEL (Pai/Referrer/Sponsor)
+            if (parentId) {
+              console.log(`[MMN] Próximo Nível (${level + 2}) será o patrocinador: ${parentId}`);
+              currentAffiliateId = parentId;
             } else {
               console.log(`[MMN] Fim da linha - ${affiliateIdentifier} não tem patrocinador.`);
               currentAffiliateId = null;

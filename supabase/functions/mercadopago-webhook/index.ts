@@ -64,7 +64,7 @@ serve(async (req) => {
           // Fetch current profile data
           const { data: profile, error: profileError } = await supabase
             .from('user_profiles')
-            .select('id, balance, total_earnings, total_sales, rank, leadership_bonus_total, referrer_id')
+            .select('id, balance, total_earnings, total_sales, rank, leadership_bonus_total, referrer_id, sponsor_id')
             .eq('id', currentAffiliateId)
             .single();
 
@@ -108,8 +108,8 @@ serve(async (req) => {
                .eq('payment_id', id.toString());
           }
 
-          // Move up the tree
-          currentAffiliateId = profile.referrer_id;
+          // Move up the tree (Try referrer_id first, then sponsor_id)
+          currentAffiliateId = profile.referrer_id || profile.sponsor_id;
         }
       }
     }
