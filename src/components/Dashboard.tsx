@@ -66,7 +66,6 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
 
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
   const [treeData, setTreeData] = useState<AffiliateNode | null>(null);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -116,7 +115,9 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
     }
   };
 
+  const [profile, setProfile] = useState<any>(null);
   const [myOrders, setMyOrders] = useState<any[]>([]);
+  const [myTransactions, setMyTransactions] = useState<any[]>([]);
   const [myNetwork, setMyNetwork] = useState<any[]>([]);
   const [leadershipConfig, setLeadershipConfig] = useState<any[]>([
     { name: 'Bronze', threshold: 500, percentage: 1 },
@@ -214,51 +215,34 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         const network = usersList.filter(u => u.referrer_id === user.id || u.sponsor_id === user.id);
         setMyNetwork(network);
 
-        // 3. Identify orders that generate commission for this user
-        const myCommOrders = ordersListRaw
-          .filter(o => 
-            o.referrer_id === user.id || 
-            o.affiliate_id === user.id ||
-            o.partner_id === user.id
-          )
-          .map(order => {
-            const customer = usersList.find(u => u.id === order.user_id);
-            return {
-              ...order,
-              customer_name: order.customer_name || order.nome || customer?.login || customer?.email?.split('@')[0] || 'Cliente'
-            };
-          });
+        // 3. Fetch Wallet Transactions for financial history
+        const { data: txList, error: txError } = await supabase
+          .from('wallet_transactions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        
+        if (txError) console.warn("Dashboard: wallet_transactions table might not exist yet:", txError);
+        const currentTransactions = txList || [];
+        setMyTransactions(currentTransactions);
 
-        setMyOrders(myCommOrders);
+        setMyOrders(ordersListRaw.filter(o => o.affiliate_id === user.id || o.referrer_id === user.id));
 
         // 4. Calculate Stats & Potential Commissions
         const commType = siteConfig?.commission_type || 'percentage';
         const commLevels = siteConfig?.level_commissions || ['10', '5', '3', '2', '1'];
 
-        const pendingOrders = myCommOrders.filter(o => o.status === 'pending');
-        
         const calculatedBalance = profileData.balance || 0;
-        const calculatedSales = profileData.total_sales || 0;
-        
-        // Calculate pending commission: use stored value or calculate based on level 1 (seller)
-        const pendingCommission = pendingOrders.reduce((acc, o) => {
-          if (o.commission_amount > 0) return acc + o.commission_amount;
-          
-          // Fallback calculation for Level 1 (assuming the user in dashboard is the seller)
-          const isSeller = o.affiliate_id === user.id;
-          if (isSeller) {
-            const level1Comm = Number(commLevels[0] || 0);
-            const amount = commType === 'fixed' ? level1Comm : (o.total_amount || 0) * (level1Comm / 100);
-            return acc + amount;
-          }
-          return acc;
-        }, 0);
+        const totalConfirmed = currentTransactions.reduce((acc, tx) => acc + (tx.amount || 0), 0);
+        const totalPending = ordersListRaw
+          .filter(o => o.status === 'pending' && (o.affiliate_id === user.id || o.referrer_id === user.id))
+          .reduce((acc, o) => acc + (o.commission_amount || 0), 0);
         
         setStats([
           { label: 'Saldo Disponível', value: `R$ ${calculatedBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Wallet className="w-5 h-5" />, trend: 'Disponível', color: 'bg-green-500' },
-          { label: 'Comissão a Liberar', value: `R$ ${pendingCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Clock className="w-5 h-5" />, trend: 'Pendente', color: 'bg-yellow-500' },
+          { label: 'Comissão a Liberar', value: `R$ ${totalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Clock className="w-5 h-5" />, trend: 'Pendente', color: 'bg-yellow-500' },
           { label: 'Consultoras Diretas', value: network.length.toString(), icon: <Users className="w-5 h-5" />, trend: 'Rede', color: 'bg-blue-500' },
-          { label: 'Total de Vendas', value: `R$ ${calculatedSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Zap className="w-5 h-5" />, trend: 'Confirmado', color: 'bg-orange-500' },
+          { label: 'Total Recebido', value: `R$ ${totalConfirmed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: <Zap className="w-5 h-5" />, trend: 'Confirmado', color: 'bg-orange-500' },
         ]);
 
         // 5. Update Profile Form
@@ -345,11 +329,11 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
     }
   };
 
-  const recentActivity = myOrders.slice(0, 5).map(order => ({
+  const recentActivity = myTransactions.slice(0, 5).map(tx => ({
     type: 'commission',
-    text: `Comissão de venda (${order.customer_name})`,
-    amount: `+ R$ ${(order.commission_amount || 0).toFixed(2)}`,
-    date: new Date(order.created_at).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    text: tx.description,
+    amount: `+ R$ ${(tx.amount || 0).toFixed(2)}`,
+    date: new Date(tx.created_at).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   }));
 
   const chartData = [
@@ -858,23 +842,25 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-accent/5">
-                      {myOrders.map((tx, i) => (
+                      {myTransactions.map((tx, i) => (
                         <tr key={i} className="group hover:bg-white/5 transition-all">
                           <td className="py-6 text-sm text-slate-400">{new Date(tx.created_at).toLocaleDateString('pt-BR')}</td>
-                          <td className="py-6 text-sm font-medium">Comissão Venda #{tx.id.substring(0,6)} ({tx.customer_name})</td>
+                          <td className="py-6 text-sm font-medium">{tx.description}</td>
                           <td className="py-6">
-                            <span className="text-[10px] uppercase font-bold bg-white/5 border border-accent/10 px-2 py-1 rounded-md text-slate-400">Venda</span>
+                            <span className="text-[10px] uppercase font-bold bg-white/5 border border-accent/10 px-2 py-1 rounded-md text-slate-400">
+                                {tx.type === 'commission' ? 'Comissão' : tx.type === 'bonus' ? 'Bônus' : 'Outro'}
+                            </span>
                           </td>
-                          <td className="py-6 text-sm font-bold text-green-400">+ R$ {(tx.commission_amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          <td className="py-6 text-sm font-bold text-green-400">+ R$ {(tx.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                           <td className="py-6 text-right">
-                             <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest ${tx.status === 'completed' ? 'bg-green-400/10 text-green-400' : 'bg-accent/10 text-accent'}`}>
-                               {tx.status === 'completed' ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                               {tx.status === 'completed' ? 'Confirmado' : 'Pendente'}
+                             <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest ${tx.status === 'confirmed' ? 'bg-green-400/10 text-green-400' : 'bg-accent/10 text-accent'}`}>
+                               <CheckCircle2 className="w-3 h-3" />
+                               {tx.status === 'confirmed' ? 'Confirmado' : 'Pendente'}
                              </div>
                           </td>
                         </tr>
                       ))}
-                      {myOrders.length === 0 && (
+                      {myTransactions.length === 0 && (
                         <tr><td colSpan={5} className="py-12 text-center text-slate-500 text-sm">Nenhuma transação encontrada.</td></tr>
                       )}
                     </tbody>
