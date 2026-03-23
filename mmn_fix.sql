@@ -1,3 +1,8 @@
+-- 0. Garantir colunas financeiras
+ALTER TABLE IF EXISTS public.user_profiles 
+ADD COLUMN IF NOT EXISTS balance DECIMAL(12,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS total_earnings DECIMAL(12,2) DEFAULT 0;
+
 -- 1. Create wallet_transactions table if it doesn't exist
 CREATE TABLE IF NOT EXISTS public.wallet_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -22,7 +27,7 @@ DECLARE
     v_current_affiliate_id UUID;
     v_parent_id UUID;
     v_level INT := 0;
-    v_level_commissions TEXT[];
+    v_level_commissions JSONB;
     v_is_fixed BOOLEAN;
     v_order_amount DECIMAL(12,2);
     v_commission_value DECIMAL(12,2);
@@ -47,11 +52,11 @@ BEGIN
 
         IF v_config IS NULL THEN
             -- Default fallbacks
-            v_level_commissions := ARRAY['10', '5', '3', '1'];
+            v_level_commissions := '["10", "5", "3", "1"]'::JSONB;
             v_is_fixed := FALSE;
             v_leadership_bonus_config := '[]'::JSONB;
         ELSE
-            v_level_commissions := v_config.level_commissions;
+            v_level_commissions := COALESCE(v_config.level_commissions, '["10", "5", "3", "1"]'::JSONB);
             v_is_fixed := (v_config.commission_type = 'fixed');
             v_leadership_bonus_config := v_config.leadership_bonus_config;
         END IF;
@@ -65,7 +70,7 @@ BEGIN
         END IF;
 
         -- Loop up the hierarchy
-        FOR v_level IN 0..(array_length(v_level_commissions, 1) - 1) LOOP
+        FOR v_level IN 0..(JSONB_ARRAY_LENGTH(v_level_commissions) - 1) LOOP
             EXIT WHEN v_current_affiliate_id IS NULL;
 
             -- Fetch current level profile
@@ -79,7 +84,7 @@ BEGIN
             END IF;
 
             -- Calculate Commission
-            v_commission_value := (v_level_commissions[v_level+1])::DECIMAL;
+            v_commission_value := (v_level_commissions->>v_level)::DECIMAL;
             IF v_is_fixed THEN
                 v_commission_amount := v_commission_value;
             ELSE
