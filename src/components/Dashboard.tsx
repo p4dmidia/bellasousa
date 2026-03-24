@@ -58,6 +58,8 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
   });
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyType, setHistoryType] = useState<'commission' | 'all'>('all');
 
   const showToast = (message: string) => {
     setToast({ message, visible: true });
@@ -198,12 +200,20 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
           const userOrders = rawOrders.filter(o => o.affiliate_id === uId || o.referrer_id === uId);
           const totalVolume = userOrders.reduce((acc, o) => acc + (o.total_amount || 0), 0);
 
+          // 1.1 Calculate if active (bought MMN product in last 30 days)
+          const lastActivation = userNode.last_activation_at ? new Date(userNode.last_activation_at).getTime() : 0;
+          const isActive = (new Date().getTime() - lastActivation) < 30 * 24 * 60 * 60 * 1000;
+
           return {
             id: userNode.id,
-            name: userNode.login || userNode.email?.split('@')[0] || 'Consultora',
-            level: userNode.role === 'affiliate' ? 'Consultora' : (userNode.role || 'Consultora'),
+            name: userNode.full_name || userNode.nome || userNode.name || userNode.login || 'Consultora',
+            level: userNode.rank || userNode.role || 'Consultora',
             pts: totalVolume.toLocaleString('pt-BR'),
             image: userNode.avatar_url,
+            isActive: isActive,
+            login: userNode.login || userNode.username || '-',
+            email: userNode.email || '-',
+            whatsapp: userNode.whatsapp || userNode.phone || userNode.tel || '-',
             children: children.length > 0 ? children : undefined
           };
         };
@@ -292,8 +302,6 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
        const { error: authError } = await supabase.auth.updateUser(updatePayload);
        if (authError) throw authError;
 
-       // Update profile table for fields that might exist (optional fallback)
-       // We'll wrap this in a simple check or try-catch since we know 'nome'/'full_name' might fail
        try {
            await supabase
              .from('user_profiles')
@@ -310,7 +318,6 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
        showToast("Perfil atualizado com sucesso!");
        setProfileForm(prev => ({ ...prev, newPassword: '', confirmPassword: '' }));
        
-       // Update local profile state and current user state
        setProfile((prev: any) => ({
            ...prev,
            nome: profileForm.nome,
@@ -328,6 +335,77 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         setIsUpdatingProfile(false);
     }
   };
+
+  const HistoryModal = () => (
+    <AnimatePresence>
+      {showHistoryModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-black/60 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="bg-[#1a0f0f] border border-white/10 w-full max-w-2xl rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[85vh]"
+          >
+            <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between bg-gradient-to-r from-primary to-transparent">
+              <div>
+                <h3 className="text-xl font-serif text-white">Histórico de Ganhos</h3>
+                <p className="text-xs text-slate-400 mt-1 uppercase tracking-widest">Detalhamento das suas comissões</p>
+              </div>
+              <button 
+                onClick={() => setShowHistoryModal(false)}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {myTransactions.length === 0 ? (
+                <div className="text-center py-12">
+                  <History className="w-12 h-12 text-slate-700 mx-auto mb-4 opacity-20" />
+                  <p className="text-slate-500 font-light">Nenhuma transação encontrada ainda.</p>
+                </div>
+              ) : (
+                myTransactions.map((tx, idx) => (
+                  <motion.div 
+                    key={tx.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    className="group bg-white/5 border border-white/5 hover:border-accent/30 p-5 rounded-2xl flex items-center justify-between transition-all"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`size-10 rounded-xl flex items-center justify-center ${tx.amount > 0 ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                        {tx.amount > 0 ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-200 leading-tight mb-1">{tx.description || 'Comissão Recebida'}</p>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-tight">
+                          {new Date(tx.created_at).toLocaleDateString('pt-BR')} às {new Date(tx.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-lg font-serif ${tx.amount > 0 ? 'text-accent' : 'text-slate-400'}`}>
+                        {tx.amount > 0 ? '+' : ''} R$ {Math.abs(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                      <span className="text-[8px] uppercase font-bold tracking-widest text-slate-600 bg-white/5 px-2 py-0.5 rounded-full">Confirmado</span>
+                    </div>
+                  </motion.div>
+                ))
+              )}
+            </div>
+
+            <div className="p-6 bg-white/5 border-t border-white/5 text-center">
+              <p className="text-[10px] text-slate-500 font-light italic">
+                Obrigado por fazer parte da rede Bella Sousa!
+              </p>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
 
   const recentActivity = myTransactions.slice(0, 5).map(tx => ({
     type: 'commission',
@@ -545,10 +623,17 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                 </div>
               </div>
 
-              {/* Stats Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {stats.map((stat, i) => (
-                  <div key={i} className="bg-white/5 border border-accent/10 p-6 rounded-[30px] shadow-2xl group hover:border-accent/30 transition-all">
+                  <div 
+                    key={i} 
+                    onClick={() => {
+                      if (stat.label === 'Total Recebido' || stat.label === 'Saldo Disponível' || stat.label === 'Comissão a Liberar') {
+                        setShowHistoryModal(true);
+                      }
+                    }}
+                    className={`bg-white/5 border border-accent/10 p-6 rounded-[30px] shadow-2xl group hover:border-accent/30 transition-all ${(stat.label === 'Total Recebido' || stat.label === 'Saldo Disponível' || stat.label === 'Comissão a Liberar') ? 'cursor-pointer hover:bg-white/10 active:scale-95' : ''}`}
+                  >
                     <div className="flex justify-between items-start mb-4">
                       <div className={`p-3 rounded-2xl ${stat.color} text-white shadow-lg`}>
                         {stat.icon}
@@ -559,6 +644,9 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                     </div>
                     <h3 className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">{stat.label}</h3>
                     <p className="text-2xl font-serif">{stat.value}</p>
+                    {(stat.label === 'Total Recebido' || stat.label === 'Saldo Disponível') && (
+                      <p className="text-[9px] text-accent mt-2 opacity-0 group-hover:opacity-100 transition-opacity">Ver Detalhes →</p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -574,7 +662,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                     <p className="text-accent text-sm font-bold uppercase tracking-widest">
                       {(() => {
                         const sortedConfig = [...leadershipConfig].sort((a, b) => a.threshold - b.threshold);
-                        const nextRank = sortedConfig.find(c => (profile?.total_sales || 0) < c.threshold);
+                        const nextRank = sortedConfig.find(c => (profile?.monthly_commission_total || 0) < c.threshold);
                         return nextRank ? `Próximo Nível: ${nextRank.name}` : 'Nível Máximo';
                       })()}
                     </p>
@@ -583,11 +671,11 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                 
                 {(() => {
                   const sortedConfig = [...leadershipConfig].sort((a, b) => a.threshold - b.threshold);
-                  const nextRank = sortedConfig.find(c => (profile?.total_sales || 0) < c.threshold);
+                  const nextRank = sortedConfig.find(c => (profile?.monthly_commission_total || 0) < c.threshold);
                   
                   if (!nextRank) return null;
 
-                  const currentSales = profile?.total_sales || 0;
+                  const currentSales = profile?.monthly_commission_total || 0;
                   const threshold = nextRank.threshold;
                   const progress = Math.min(100, (currentSales / threshold) * 100);
                   const remaining = threshold - currentSales;
@@ -606,7 +694,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                         />
                       </div>
                       <p className="text-[10px] text-slate-500 italic text-center">
-                        Faltam R$ {remaining.toLocaleString('pt-BR')} para o nível {nextRank.name}!
+                        Faltam R$ {remaining.toLocaleString('pt-BR')} em comissões para o nível {nextRank.name}!
                       </p>
                     </div>
                   );
@@ -646,29 +734,49 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                   </div>
                 </div>
 
-                {/* Recent Activities */}
-                <div className="bg-white/5 border border-accent/10 p-8 rounded-[40px]">
-                  <h3 className="font-serif text-2xl mb-8">Atividade Recente</h3>
-                  <div className="space-y-6">
+                {/* Recent Activities as Quick Statement */}
+                <div className="bg-white/5 border border-accent/10 p-8 rounded-[40px] flex flex-col h-full shadow-2xl">
+                  <div className="flex items-center justify-between mb-8">
+                    <h3 className="font-serif text-2xl">Extrato Rápido</h3>
+                    <TrendingUp className="w-5 h-5 text-accent opacity-50" />
+                  </div>
+                  
+                  <div className="flex-1 space-y-4">
                     {recentActivity.length > 0 ? recentActivity.map((activity, i) => (
-                      <div key={i} className="flex gap-4 group">
-                        <div className="w-2 h-2 rounded-full bg-accent mt-2 group-last:bg-accent/20" />
-                        <div>
-                          <p className="text-sm font-medium">{activity.text}</p>
-                          <div className="flex items-center gap-3 mt-1">
-                            <span className="text-[10px] text-slate-500 uppercase tracking-widest">{activity.date}</span>
-                            {activity.amount && (
-                              <span className="text-[10px] text-green-400 font-bold">{activity.amount}</span>
-                            )}
+                      <motion.div 
+                        key={i} 
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.1 }}
+                        className="flex items-center justify-between group p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-all border border-transparent hover:border-accent/10"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="size-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent">
+                            <ArrowUpRight className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold text-slate-200 truncate leading-tight mb-0.5">{activity.text}</p>
+                            <p className="text-[9px] text-slate-500 uppercase tracking-tighter">{activity.date}</p>
                           </div>
                         </div>
-                      </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs font-black text-green-400 font-mono tracking-tighter">{activity.amount}</p>
+                        </div>
+                      </motion.div>
                     )) : (
-                      <p className="text-slate-500 text-sm italic">Nenhuma atividade recente.</p>
+                      <div className="py-12 text-center">
+                        <History className="w-8 h-8 text-slate-700 mx-auto mb-3 opacity-20" />
+                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest italic">Sem ganhos recentes</p>
+                      </div>
                     )}
                   </div>
-                  <button className="w-full mt-10 py-4 border border-accent/20 rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-accent/5 transition-all">
-                    Ver todo o histórico
+                  
+                  <button 
+                    onClick={() => setShowHistoryModal(true)}
+                    className="w-full mt-8 py-4 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-[10px] uppercase font-black tracking-widest text-accent transition-all flex items-center justify-center gap-2 group-hover:scale-[1.02]"
+                  >
+                    Ver Todo o Extrato
+                    <ExternalLink className="w-3 h-3" />
                   </button>
                 </div>
               </div>
@@ -1059,6 +1167,9 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Render History Modal */}
+      <HistoryModal />
     </div>
   );
 }

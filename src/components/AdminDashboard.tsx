@@ -72,7 +72,8 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
     stock: '',
     description: '',
     image_url: '',
-    category: 'Lingerie' // Default category
+    category: 'Lingerie', // Default category
+    is_leadership_item: false
   });
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
@@ -343,7 +344,8 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
       stock: product.stock_quantity?.toString() || '0',
       description: product.description || '',
       image_url: product.image_url || '',
-      category: Object.keys(categoryMap).find(key => categoryMap[key] === product.category_id) || 'Lingerie'
+      category: Object.keys(categoryMap).find(key => categoryMap[key] === product.category_id) || 'Lingerie',
+      is_leadership_item: product.is_leadership_item || false
     });
     setEditingProductId(product.id);
     setShowNewProductModal(true);
@@ -394,6 +396,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
           stock_quantity: parseInt(newProduct.stock) || 0,
           image_url: finalImageUrl,
           category_id: categoryId,
+          is_leadership_item: newProduct.is_leadership_item
         }).eq('id', editingProductId);
 
         if (error) throw error;
@@ -408,7 +411,8 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
           image_url: finalImageUrl || 'https://images.unsplash.com/photo-1584305574647-0cb93d30b912?w=500&auto=format&fit=crop&q=60',
           category_id: categoryId,
           organization_id: ORGANIZATION_ID,
-          is_active: true
+          is_active: true,
+          is_leadership_item: newProduct.is_leadership_item
         });
 
         if (error) throw error;
@@ -417,7 +421,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
       
       setShowNewProductModal(false);
       setEditingProductId(null);
-      setNewProduct({ name: '', price: '', stock: '', description: '', image_url: '', category: 'Lingerie' });
+      setNewProduct({ name: '', price: '', stock: '', description: '', image_url: '', category: 'Lingerie', is_leadership_item: false });
       setSelectedImageFile(null);
       // Refresh list
       const { data: updatedData } = await supabase.from('products').select('*').eq('organization_id', ORGANIZATION_ID).order('created_at', { ascending: false });
@@ -1002,7 +1006,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                           </div>
                           
                           <div className="w-32">
-                            <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 block mb-1">Faturamento (R$)</label>
+                            <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 block mb-1">Meta Comissão (R$)</label>
                             <input 
                               type="number" 
                               value={item.threshold}
@@ -1017,7 +1021,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                           
                           <div className="w-24">
                             <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 block mb-1">
-                              Bônus ({commissionType === 'percentage' ? '%' : 'R$'})
+                              Bônus (%)
                             </label>
                             <div className="flex items-center gap-1">
                               <input 
@@ -1030,7 +1034,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                                 }}
                                 className="w-full bg-transparent border-b border-white/10 text-white focus:border-accent outline-none font-medium text-sm text-right" 
                               />
-                              <span className="text-slate-500">{commissionType === 'percentage' ? '%' : 'R$'}</span>
+                              <span className="text-slate-500">%</span>
                             </div>
                           </div>
                           
@@ -1253,11 +1257,21 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                       onChange={e => setNewProduct({...newProduct, category: e.target.value})}
                       className="w-full bg-[#130d0d] border border-white/10 rounded-xl p-3 text-white focus:border-accent outline-none appearance-none"
                     >
-                      <option value="Lingerie">Lingerie</option>
-                      <option value="Cosméticos">Cosméticos</option>
-                      <option value="Acessórios">Acessórios</option>
                       <option value="Perfumaria">Perfumaria</option>
                     </select>
+                    
+                    <div className="flex items-center gap-2 mt-4">
+                      <input 
+                        type="checkbox" 
+                        id="is_leadership_item"
+                        checked={newProduct.is_leadership_item}
+                        onChange={e => setNewProduct({...newProduct, is_leadership_item: e.target.checked})}
+                        className="w-4 h-4 accent-accent bg-[#130d0d] border-white/10 rounded"
+                      />
+                      <label htmlFor="is_leadership_item" className="text-[10px] font-bold uppercase tracking-widest text-slate-400 cursor-pointer">
+                        Item de Liderança
+                      </label>
+                    </div>
                   </div>
                   <div>
                     <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">Imagem do Produto</label>

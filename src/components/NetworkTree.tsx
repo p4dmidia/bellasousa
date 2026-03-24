@@ -8,6 +8,10 @@ export interface AffiliateNode {
   level: string;
   pts: string;
   image?: string;
+  isActive?: boolean;
+  login?: string;
+  whatsapp?: string;
+  email?: string;
   children?: AffiliateNode[];
 }
 
@@ -77,12 +81,12 @@ export function TreeNode({ node, isLast = false }: { node: AffiliateNode; isLast
            }}
            className="relative cursor-pointer group"
         >
-          <div className={`w-16 h-16 rounded-full border-4 ${isNoUser ? 'border-slate-700 bg-slate-800' : 'border-accent bg-primary'} p-0.5 shadow-xl transition-all overflow-hidden`}>
-            <div className="w-full h-full rounded-full flex items-center justify-center bg-white/5 overflow-hidden">
+          <div className={`w-16 h-16 rounded-full border-4 ${isNoUser ? 'border-slate-700 bg-slate-800' : (node.isActive === false ? 'border-[#334155] bg-[#1e293b] opacity-40 grayscale' : 'border-accent bg-primary')} p-0.5 shadow-xl transition-all overflow-hidden`}>
+            <div className={`w-full h-full rounded-full flex items-center justify-center bg-white/5 overflow-hidden ${node.isActive === false ? 'grayscale brightness-50' : ''}`}>
               {node.image ? (
                 <img src={node.image} alt={node.name} className="w-full h-full object-cover rounded-full" />
               ) : (
-                <Users className={`w-6 h-6 ${isNoUser ? 'text-slate-600' : 'text-accent'}`} />
+                <Users className={`w-6 h-6 ${isNoUser || node.isActive === false ? 'text-slate-600' : 'text-accent'}`} />
               )}
             </div>
           </div>
@@ -98,9 +102,25 @@ export function TreeNode({ node, isLast = false }: { node: AffiliateNode; isLast
                 <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#251212] border-t border-l border-accent/30 rotate-45" />
                 <p className="font-serif text-accent text-lg leading-tight mb-1">{node.name}</p>
                 <p className="text-[10px] uppercase font-bold text-slate-400 mb-2">{node.level}</p>
-                <div className="space-y-1 text-[10px] text-slate-500 border-t border-white/5 pt-2">
-                  <p>Número: <span className="text-white">1</span></p>
-                  <p>Volume: <span className="text-accent">{node.pts} pts</span></p>
+                
+                <div className="space-y-1.5 text-left border-t border-white/5 pt-3">
+                  <p className="text-[9px] text-slate-500 uppercase flex justify-between">
+                    Usuário: <span className="text-white normal-case">{node.login || '-'}</span>
+                  </p>
+                  <p className="text-[9px] text-slate-500 uppercase flex justify-between">
+                    Status: <span className={node.isActive ? 'text-green-400' : 'text-red-400'}>
+                      {node.isActive ? 'Ativa' : 'Inativa'}
+                    </span>
+                  </p>
+                  <p className="text-[9px] text-slate-500 uppercase flex justify-between">
+                    WhatsApp: <span className="text-white">{node.whatsapp || '-'}</span>
+                  </p>
+                  <p className="text-[9px] text-slate-500 uppercase flex justify-between">
+                    E-mail: <span className="text-white lowercase truncate max-w-[100px]">{node.email || '-'}</span>
+                  </p>
+                  <p className="text-[9px] text-slate-500 uppercase flex justify-between">
+                    Nível: <span className="text-accent">{node.level}</span>
+                  </p>
                 </div>
               </motion.div>
             )}
