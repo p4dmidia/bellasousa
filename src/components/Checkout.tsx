@@ -24,7 +24,7 @@ export default function Checkout({
     onBackToCart: () => void
 }) {
     const [step, setStep] = useState<'form' | 'success'>('form');
-    const [personal, setPersonal] = useState({ name: '', email: '', whatsapp: '' });
+    const [personal, setPersonal] = useState({ name: '-', email: '-', whatsapp: '-' });
     const [isProcessing, setIsProcessing] = useState(false);
     const [paymentResult, setPaymentResult] = useState<any>(null);
     const [paymentMethod] = useState<'whatsapp'>('whatsapp');
@@ -38,8 +38,8 @@ export default function Checkout({
                 // Keep a lightweight auto-fetch just for the display name
                 const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
                 
-                // Columns verified: id, email, cpf, login
-                let query = supabase.from('user_profiles').select('id, email, cpf, login');
+                // Fetch ALL columns to ensure we have name and phone
+                let query = supabase.from('user_profiles').select('*');
                 
                 if (isUUID) {
                     query = query.or(`id.eq.${ref},email.ilike.${ref},login.eq.${ref}`);
@@ -57,8 +57,12 @@ export default function Checkout({
                 
                 if (data) {
                     setSelectedAffiliate(data);
-                    const displayName = data.email?.split('@')[0] || 'Consultora';
-                    console.log("Checkout: Affiliate auto-identified:", displayName);
+                    setPersonal({
+                        name: data.nome || data.login || data.email?.split('@')[0] || 'Consultora',
+                        email: data.email || '-',
+                        whatsapp: data.phone || data.whatsapp || '-'
+                    });
+                    console.log("Checkout: Affiliate auto-identified:", data.login);
                 }
             }
             setIsAffiliateLoading(false);
@@ -66,7 +70,7 @@ export default function Checkout({
         autoFetchAffiliate();
     }, []);
 
-    const isFormValid = personal.name && personal.email && personal.whatsapp;
+    const isFormValid = !!selectedAffiliate;
 
     const subtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     const shipping = 0;
@@ -193,31 +197,12 @@ ${itemsList}
                         className="space-y-8"
                     >
                         <div className="space-y-8">
-                            <section className="bg-white p-6 sm:p-8 rounded-3xl border border-black/5 shadow-sm">
-                                <div className="flex items-center gap-3 mb-8">
-                                    <div className="size-10 bg-accent/10 rounded-full flex items-center justify-center">
-                                        <User className="w-5 h-5 text-accent" />
-                                    </div>
-                                    <h2 className="text-primary text-xl font-serif">Dados Pessoais</h2>
+                            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-black/5 shadow-sm">
+                                <div className="space-y-4">
+                                    <h2 className="text-primary text-xl font-serif">Resumo do Pedido</h2>
+                                    <p className="text-slate-500 text-sm">Você está realizando uma compra como consultora. Seus dados serão preenchidos automaticamente.</p>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="md:col-span-2 space-y-2">
-                                        <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">Nome Completo</label>
-                                        <input required type="text" placeholder="Ex: Maria Silva" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all text-black" 
-                                            value={personal.name} onChange={e => setPersonal({...personal, name: e.target.value})} />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">E-mail</label>
-                                        <input required type="email" placeholder="maria@exemplo.com" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all text-black" 
-                                            value={personal.email} onChange={e => setPersonal({...personal, email: e.target.value})} />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1">WhatsApp</label>
-                                        <input required type="tel" placeholder="(00) 00000-0000" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 focus:outline-none focus:border-accent/40 transition-all text-black" 
-                                            value={personal.whatsapp} onChange={e => setPersonal({...personal, whatsapp: e.target.value})} />
-                                    </div>
-                                </div>
-                            </section>
+                            </div>
 
                             {selectedAffiliate && (
                                 <motion.div 

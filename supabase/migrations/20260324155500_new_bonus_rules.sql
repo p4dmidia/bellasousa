@@ -54,8 +54,16 @@ BEGIN
             WHERE id = v_product.id;
 
             IF v_product.is_leadership_item THEN
-                IF NEW.affiliate_id IS NOT NULL THEN
-                    SELECT rank INTO v_profile FROM public.user_profiles WHERE id = NEW.affiliate_id;
+                -- NOVA REGRA: O comprador NÃO recebe bônus. Começamos pelo seu indicador.
+                SELECT referrer_id, sponsor_id INTO v_profile FROM public.user_profiles WHERE id = NEW.affiliate_id;
+                v_current_affiliate_id := COALESCE(v_profile.referrer_id, v_profile.sponsor_id);
+
+                FOR v_level IN 0..(JSONB_ARRAY_LENGTH(v_level_commissions) - 1) LOOP
+                    EXIT WHEN v_current_affiliate_id IS NULL;
+                    
+                    SELECT rank, referrer_id, sponsor_id INTO v_profile FROM public.user_profiles WHERE id = v_current_affiliate_id;
+                    IF v_profile IS NULL THEN EXIT; END IF;
+
                     v_target_rank := COALESCE(v_profile.rank, 'Consultor');
                     IF v_target_rank = 'Consultor' OR v_target_rank = '' THEN
                         v_target_rank := 'Bronze';
@@ -74,17 +82,22 @@ BEGIN
                             balance = COALESCE(balance, 0) + v_commission_amount,
                             total_earnings = COALESCE(total_earnings, 0) + v_commission_amount,
                             monthly_commission_total = COALESCE(monthly_commission_total, 0) + v_commission_amount
-                        WHERE id = NEW.affiliate_id;
+                        WHERE id = v_current_affiliate_id;
 
                         INSERT INTO public.wallet_transactions (user_id, order_id, amount, type, description)
-                        VALUES (NEW.affiliate_id, NEW.id, v_commission_amount, 'commission', 'Bônus Liderança (' || v_target_rank || ') - Venda de ' || v_customer_name || ' (' || (v_item->>'name') || ')');
+                        VALUES (v_current_affiliate_id, NEW.id, v_commission_amount, 'commission', 'Bônus Liderança Nível ' || (v_level + 1) || ' (' || v_target_rank || ') - Venda de ' || v_customer_name || ' (' || (v_item->>'name') || ')');
                         
                         v_total_order_leadership := v_total_order_leadership + v_commission_amount;
                     END IF;
-                END IF;
+
+                    v_current_affiliate_id := COALESCE(v_profile.referrer_id, v_profile.sponsor_id);
+                END LOOP;
             ELSE
                 v_has_mmn_item := true;
-                v_current_affiliate_id := NEW.affiliate_id;
+                -- NOVA REGRA: O comprador NÃO recebe bônus. Começamos pelo seu indicador.
+                SELECT referrer_id, sponsor_id INTO v_profile FROM public.user_profiles WHERE id = NEW.affiliate_id;
+                v_current_affiliate_id := COALESCE(v_profile.referrer_id, v_profile.sponsor_id);
+
                 FOR v_level IN 0..(JSONB_ARRAY_LENGTH(v_level_commissions) - 1) LOOP
                     EXIT WHEN v_current_affiliate_id IS NULL;
                     SELECT id, referrer_id, sponsor_id INTO v_profile FROM public.user_profiles WHERE id = v_current_affiliate_id;
@@ -104,7 +117,7 @@ BEGIN
                     INSERT INTO public.wallet_transactions (user_id, order_id, amount, type, description)
                     VALUES (v_current_affiliate_id, NEW.id, v_commission_amount, 'commission', 'Comissão MMN Nível ' || (v_level + 1) || ' - Venda de ' || v_customer_name || ' (' || (v_item->>'name') || ')');
                     
-                    IF v_level = 0 THEN v_total_order_commission := v_total_order_commission + v_commission_amount; END IF;
+                    v_total_order_commission := v_total_order_commission + v_commission_amount;
                     v_current_affiliate_id := COALESCE(v_profile.referrer_id, v_profile.sponsor_id);
                 END LOOP;
             END IF;

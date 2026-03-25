@@ -54,19 +54,31 @@ serve(async (req) => {
       .maybeSingle();
 
     // 3. Calculate commission (Default 10% if no config found)
+    // NOVA REGRA: O comprador (resolved_affiliate_id) não recebe comissão.
+    // Buscamos o indicador dele para calcular a comissão de nível 1 do pedido.
     let commission_amount = 0;
     if (resolved_affiliate_id && items && items.length > 0) {
-      if (configData && configData.level_commissions && configData.level_commissions.length > 0) {
-        const rateOrValue = parseFloat(configData.level_commissions[0]);
-        const isFixed = configData.commission_type === 'fixed';
-        
-        if (isFixed) {
-          commission_amount = rateOrValue; // Fixed value per order
+      const { data: buyerProfile } = await supabase
+        .from('user_profiles')
+        .select('referrer_id, sponsor_id')
+        .eq('id', resolved_affiliate_id)
+        .maybeSingle();
+
+      const recipient_id = buyerProfile?.referrer_id || buyerProfile?.sponsor_id;
+
+      if (recipient_id) {
+        if (configData && configData.level_commissions && configData.level_commissions.length > 0) {
+          const rateOrValue = parseFloat(configData.level_commissions[0]);
+          const isFixed = configData.commission_type === 'fixed';
+          
+          if (isFixed) {
+            commission_amount = rateOrValue; // Fixed value per order
+          } else {
+            commission_amount = total_amount * (rateOrValue / 100);
+          }
         } else {
-          commission_amount = total_amount * (rateOrValue / 100);
+          commission_amount = total_amount * 0.10; // Fallback to 10%
         }
-      } else {
-        commission_amount = total_amount * 0.10; // Fallback to 10%
       }
     }
 
