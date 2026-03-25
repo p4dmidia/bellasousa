@@ -1,14 +1,12 @@
--- 1. Função de processamento de bônus (VERSÃO COM DETALHAMENTO DE COMPRADOR)
+-- 1. Função de processamento de bônus (VERSÃO ROBUSTA)
 CREATE OR REPLACE FUNCTION public.fn_process_mmn_commissions()
 RETURNS TRIGGER AS $$
 DECLARE
-    v_config RECORD;
     v_item JSONB;
     v_product RECORD;
     v_current_affiliate_id UUID;
     v_profile RECORD;
-    v_level INT;
-    v_level_commissions JSONB;
+    v_level_commissions TEXT[]; 
     v_commission_amount DECIMAL(12,2);
     v_commission_value DECIMAL(12,2);
     v_is_fixed BOOLEAN;
@@ -20,72 +18,74 @@ DECLARE
     v_target_rank TEXT;
     v_has_mmn_item BOOLEAN := false;
     v_customer_name TEXT := 'Cliente';
+    v_item_total DECIMAL(12,2);
+    v_commission_type TEXT;
+    v_current_rank TEXT;
 BEGIN
-    PERFORM public.fn_reset_monthly_commissions();
-
+    -- Permitir processamento apenas quando o status muda para 'completed'
     IF (NEW.status = 'completed' AND (OLD.status IS NULL OR OLD.status != 'completed')) THEN
+        -- Prevenir execução duplicada
         IF EXISTS (SELECT 1 FROM public.wallet_transactions WHERE order_id = NEW.id AND type = 'commission') THEN
             RETURN NEW;
         END IF;
 
-        -- Buscar Nome do Comprador (Campos reais da tabela orders)
+        -- Buscar Nome do Comprador
         v_customer_name := COALESCE(NEW.customer_name, NEW.nome, 'Cliente');
 
+        -- Buscar configurações do site
         SELECT level_commissions, commission_type, leadership_bonus_config 
-        INTO v_config 
+        INTO v_level_commissions, v_commission_type, v_leadership_bonus_config
         FROM public.site_configs 
         WHERE organization_id = NEW.organization_id 
         LIMIT 1;
 
-        v_level_commissions := COALESCE(v_config.level_commissions, '["10", "5", "3", "1"]'::JSONB);
-        v_is_fixed := (v_config.commission_type = 'fixed');
-        v_leadership_bonus_config := COALESCE(v_config.leadership_bonus_config, '[]'::JSONB);
+        -- Fallback se não houver config
+        IF v_level_commissions IS NULL THEN
+            v_level_commissions := ARRAY['10', '5', '3', '1'];
+        END IF;
+        v_is_fixed := (v_commission_type = 'fixed');
 
+        -- Loop nos itens do pedido
         FOR v_item IN SELECT * FROM jsonb_array_elements(NEW.items) LOOP
-            SELECT id, is_leadership_item, price, stock_quantity INTO v_product 
-            FROM public.products 
-            WHERE id::text = (v_item->>'id') OR name = (v_item->>'name')
-            LIMIT 1;
+            -- Buscar informações do produto
+            SELECT is_leadership_item INTO v_product FROM public.products WHERE id = (v_item->>'id')::UUID;
+            v_item_total := (v_item->>'price')::DECIMAL * (v_item->>'quantity')::INT;
 
-            IF v_product IS NULL THEN CONTINUE; END IF;
+            -- Iniciar cadeia a partir do indicador do comprador (Comprador pula - regra de afiliada)
+            SELECT referrer_id, sponsor_id INTO v_profile FROM public.user_profiles WHERE id = NEW.affiliate_id;
+            v_current_affiliate_id := COALESCE(v_profile.referrer_id, v_profile.sponsor_id);
 
-            UPDATE public.products 
-            SET stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - (v_item->>'quantity')::INT)
-            WHERE id = v_product.id;
-
-            IF v_product.is_leadership_item THEN
-                -- NOVA REGRA: O comprador NÃO recebe bônus. Começamos pelo seu indicador.
-                SELECT referrer_id, sponsor_id INTO v_profile FROM public.user_profiles WHERE id = NEW.affiliate_id;
-                v_current_affiliate_id := COALESCE(v_profile.referrer_id, v_profile.sponsor_id);
-
-                FOR v_level IN 0..(JSONB_ARRAY_LENGTH(v_level_commissions) - 1) LOOP
+            -- Se for item de liderança, segue regra de rede de liderança
+            IF COALESCE(v_product.is_leadership_item, false) THEN
+                FOR i IN 1..COALESCE(array_length(v_level_commissions, 1), 0) LOOP
                     EXIT WHEN v_current_affiliate_id IS NULL;
                     
                     SELECT rank, referrer_id, sponsor_id INTO v_profile FROM public.user_profiles WHERE id = v_current_affiliate_id;
-                    IF v_profile IS NULL THEN EXIT; END IF;
+                    v_current_rank := COALESCE(v_profile.rank, 'Consultor');
 
-                    v_target_rank := COALESCE(v_profile.rank, 'Consultor');
-                    IF v_target_rank = 'Consultor' OR v_target_rank = '' THEN
-                        v_target_rank := 'Bronze';
-                    END IF;
-                    
                     v_commission_amount := 0;
-                    FOR v_rank_config IN SELECT * FROM jsonb_to_recordset(v_leadership_bonus_config) AS x(name TEXT, threshold DECIMAL, percentage DECIMAL) LOOP
-                        IF LOWER(v_target_rank) = LOWER(v_rank_config.name) THEN
-                            v_commission_amount := ((v_item->>'price')::DECIMAL * (v_item->>'quantity')::INT) * (v_rank_config.percentage / 100);
+                    -- Procura a porcentagem para o rank atual no config de liderança
+                    FOR v_rank_config IN SELECT * FROM jsonb_to_recordset(v_leadership_bonus_config) AS x(name text, percentage numeric) LOOP
+                        IF LOWER(v_rank_config.name) = LOWER(v_current_rank) THEN
+                            v_commission_amount := v_item_total * (v_rank_config.percentage / 100);
                             EXIT;
                         END IF;
                     END LOOP;
 
+                    -- Respeita o "0" no nível do MMN (se nível 1 é 0 no painel MMN, liderança no nível 1 também é 0)
+                    v_commission_value := (v_level_commissions[i])::NUMERIC;
+                    IF v_commission_value = 0 THEN
+                        v_commission_amount := 0;
+                    END IF;
+
                     IF v_commission_amount > 0 THEN
                         UPDATE public.user_profiles SET
                             balance = COALESCE(balance, 0) + v_commission_amount,
-                            total_earnings = COALESCE(total_earnings, 0) + v_commission_amount,
-                            monthly_commission_total = COALESCE(monthly_commission_total, 0) + v_commission_amount
+                            leadership_bonus_total = COALESCE(leadership_bonus_total, 0) + v_commission_amount
                         WHERE id = v_current_affiliate_id;
 
-                        INSERT INTO public.wallet_transactions (user_id, order_id, amount, type, description)
-                        VALUES (v_current_affiliate_id, NEW.id, v_commission_amount, 'commission', 'Bônus Liderança Nível ' || (v_level + 1) || ' (' || v_target_rank || ') - Venda de ' || v_customer_name || ' (' || (v_item->>'name') || ')');
+                        INSERT INTO public.wallet_transactions (user_id, amount, type, description, order_id)
+                        VALUES (v_current_affiliate_id, v_commission_amount, 'commission', 'Bônus Liderança Nível ' || i || ' (' || v_current_rank || ') - Pedido #' || NEW.payment_id, NEW.id);
                         
                         v_total_order_leadership := v_total_order_leadership + v_commission_amount;
                     END IF;
@@ -93,41 +93,38 @@ BEGIN
                     v_current_affiliate_id := COALESCE(v_profile.referrer_id, v_profile.sponsor_id);
                 END LOOP;
             ELSE
+                -- Bônus MMN Padrão
                 v_has_mmn_item := true;
-                -- NOVA REGRA: O comprador NÃO recebe bônus. Começamos pelo seu indicador.
-                SELECT referrer_id, sponsor_id INTO v_profile FROM public.user_profiles WHERE id = NEW.affiliate_id;
-                v_current_affiliate_id := COALESCE(v_profile.referrer_id, v_profile.sponsor_id);
-
-                FOR v_level IN 0..(JSONB_ARRAY_LENGTH(v_level_commissions) - 1) LOOP
+                FOR i IN 1..COALESCE(array_length(v_level_commissions, 1), 0) LOOP
                     EXIT WHEN v_current_affiliate_id IS NULL;
-                    SELECT id, referrer_id, sponsor_id INTO v_profile FROM public.user_profiles WHERE id = v_current_affiliate_id;
-                    IF v_profile IS NULL THEN EXIT; END IF;
-                    v_commission_value := (v_level_commissions->>v_level)::DECIMAL;
+                    
+                    v_commission_value := (v_level_commissions[i])::NUMERIC;
+                    
                     IF v_is_fixed THEN
                         v_commission_amount := v_commission_value * (v_item->>'quantity')::INT;
                     ELSE
-                        v_commission_amount := ((v_item->>'price')::DECIMAL * (v_item->>'quantity')::INT) * (v_commission_value / 100);
+                        v_commission_amount := v_item_total * (v_commission_value / 100);
                     END IF;
-                    UPDATE public.user_profiles SET
-                        balance = COALESCE(balance, 0) + v_commission_amount,
-                        total_earnings = COALESCE(total_earnings, 0) + v_commission_amount,
-                        monthly_commission_total = COALESCE(monthly_commission_total, 0) + v_commission_amount
-                    WHERE id = v_current_affiliate_id;
-                    
-                    INSERT INTO public.wallet_transactions (user_id, order_id, amount, type, description)
-                    VALUES (v_current_affiliate_id, NEW.id, v_commission_amount, 'commission', 'Comissão MMN Nível ' || (v_level + 1) || ' - Venda de ' || v_customer_name || ' (' || (v_item->>'name') || ')');
-                    
-                    v_total_order_commission := v_total_order_commission + v_commission_amount;
+
+                    IF v_commission_amount > 0 THEN
+                        UPDATE public.user_profiles SET
+                            balance = COALESCE(balance, 0) + v_commission_amount,
+                            total_earnings = COALESCE(total_earnings, 0) + v_commission_amount
+                        WHERE id = v_current_affiliate_id;
+
+                        INSERT INTO public.wallet_transactions (user_id, amount, type, description, order_id)
+                        VALUES (v_current_affiliate_id, v_commission_amount, 'commission', 'Comissão MMN Nível ' || i || ' - Pedido #' || NEW.payment_id, NEW.id);
+                        
+                        v_total_order_commission := v_total_order_commission + v_commission_amount;
+                    END IF;
+
+                    SELECT referrer_id, sponsor_id INTO v_profile FROM public.user_profiles WHERE id = v_current_affiliate_id;
                     v_current_affiliate_id := COALESCE(v_profile.referrer_id, v_profile.sponsor_id);
                 END LOOP;
             END IF;
         END LOOP;
 
-        -- Ativação Mensal via e-mail do comprador
-        IF v_has_mmn_item AND NEW.email IS NOT NULL THEN
-            UPDATE public.user_profiles SET last_activation_at = now() WHERE email = NEW.email;
-        END IF;
-
+        -- Atualizar Rank do comprador se acumulou comissões (Carreira)
         IF NEW.affiliate_id IS NOT NULL THEN
             SELECT monthly_commission_total, rank INTO v_profile FROM public.user_profiles WHERE id = NEW.affiliate_id;
             v_new_rank := COALESCE(v_profile.rank, 'Consultor');
@@ -136,7 +133,7 @@ BEGIN
                 AS x(name TEXT, threshold DECIMAL, percentage DECIMAL) 
                 ORDER BY threshold DESC 
             LOOP
-                IF v_profile.monthly_commission_total >= v_rank_config.threshold THEN
+                IF COALESCE(v_profile.monthly_commission_total, 0) >= v_rank_config.threshold THEN
                     v_new_rank := v_rank_config.name;
                     EXIT;
                 END IF;
@@ -146,8 +143,21 @@ BEGIN
             END IF;
         END IF;
 
-        UPDATE public.orders SET commission_amount = v_total_order_commission, leadership_bonus_amount = v_total_order_leadership WHERE id = NEW.id;
+        -- Adicionar as comissões calculadas ao registro do pedido (sem disparar o trigger de novo via BEFORE UPDATE se possível)
+        -- Como estamos em AFTER UPDATE, temos que fazer um update direto e garantir que o loop pare (o WHEN no trigger resolve)
+        UPDATE public.orders SET 
+            commission_amount = COALESCE(v_total_order_commission, 0), 
+            leadership_bonus_amount = COALESCE(v_total_order_leadership, 0)
+        WHERE id = NEW.id;
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 2. Criar Trigger (GARANTIR QUE EXISTE)
+DROP TRIGGER IF EXISTS tr_process_mmn_commissions ON public.orders;
+CREATE TRIGGER tr_process_mmn_commissions
+AFTER UPDATE ON public.orders
+FOR EACH ROW
+WHEN (NEW.status = 'completed' AND (OLD.status IS NULL OR OLD.status != 'completed'))
+EXECUTE FUNCTION public.fn_process_mmn_commissions();
