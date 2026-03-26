@@ -44,21 +44,27 @@ BEGIN
     IF (NEW.status = 'completed' AND (OLD.status IS NULL OR OLD.status != 'completed')) THEN
         
         -- Get configuration for the organization
-        SELECT level_commissions, commission_type, leadership_bonus_config 
-        INTO v_config 
-        FROM public.site_configs 
-        WHERE organization_id = NEW.organization_id 
-        LIMIT 1;
+        -- Fallback: Use the organization_id from the affiliate if not present in the order
+        DECLARE
+           v_target_org_id UUID := COALESCE(NEW.organization_id, (SELECT organization_id FROM public.user_profiles WHERE id = NEW.affiliate_id));
+        BEGIN
+            SELECT level_commissions, commission_type, leadership_bonus_config 
+            INTO v_config 
+            FROM public.site_configs 
+            WHERE organization_id = v_target_org_id 
+            LIMIT 1;
+        END;
 
         IF v_config IS NULL THEN
             -- Default fallbacks
+            RAISE NOTICE 'fn_process_mmn_commissions: Configuration NOT found for org %, using defaults.', COALESCE(NEW.organization_id::TEXT, 'NULL');
             v_level_commissions := '["10", "5", "3", "1"]'::JSONB;
             v_is_fixed := FALSE;
             v_leadership_bonus_config := '[]'::JSONB;
         ELSE
             v_level_commissions := COALESCE(v_config.level_commissions, '["10", "5", "3", "1"]'::JSONB);
-            v_is_fixed := (v_config.commission_type = 'fixed');
-            v_leadership_bonus_config := v_config.leadership_bonus_config;
+            v_is_fixed := (COALESCE(v_config.commission_type, 'percentage') = 'fixed');
+            v_leadership_bonus_config := COALESCE(v_config.leadership_bonus_config, '[]'::JSONB);
         END IF;
 
         v_order_amount := NEW.total_amount;

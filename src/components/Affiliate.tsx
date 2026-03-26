@@ -49,7 +49,7 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
         e.preventDefault();
         setLoading(true);
 
-        const referrerId = getStoredReferral() || undefined;
+        const referrerId = selectedAffiliate?.id;
 
         console.log("Affiliate Signup: Referrer identified:", referrerId);
 
