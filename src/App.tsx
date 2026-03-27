@@ -19,6 +19,10 @@ import { captureReferral } from './lib/referral';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster } from 'react-hot-toast';
 
+// Capture referral immediately upon script load to ensure it's in localStorage 
+// before any child components (like Affiliate) try to read it.
+captureReferral();
+
 interface CartItem {
   id: number;
   name: string;
@@ -72,9 +76,6 @@ export default function App() {
 
   // 1. Session and URL management
   useEffect(() => {
-    // Capture referral code and clean URL (30-day persistence)
-    captureReferral();
-
     // 2. Restore Supabase Auth
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {

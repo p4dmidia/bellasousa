@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { motion } from 'motion/react';
 import { Users, TrendingUp, Award, CheckCircle2, ArrowRight, DollarSign, Zap, Loader2 } from 'lucide-react';
 import { supabase, ORGANIZATION_ID } from '../lib/supabase';
-import { getStoredReferral } from '../lib/referral';
+import { getStoredReferral, captureReferral } from '../lib/referral';
 
 export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () => void, onSuccess: () => void, onLoginSuccess: (session: any) => void }) {
     const [loading, setLoading] = useState(false);
@@ -20,6 +20,9 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
 
     useEffect(() => {
         const fetchReferrer = async () => {
+            // Ensure any referral in URL is captured before we try to read from storage
+            captureReferral();
+            
             const ref = getStoredReferral();
             if (ref) {
                 const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
