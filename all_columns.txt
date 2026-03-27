@@ -1,6 +1,6 @@
 
 TABLE: user_profiles
-COLUMNS: id, mocha_user_id, cpf, role, is_active, sponsor_id, company_name, created_at, updated_at, email, organization_id, avatar_url, referrer_id, registration_type, status, cnpj, total_sales, rank, leadership_bonus_total, login
+COLUMNS: id, mocha_user_id, cpf, role, is_active, sponsor_id, company_name, created_at, updated_at, email, organization_id, avatar_url, referrer_id, registration_type, status, cnpj, total_sales, rank, leadership_bonus_total, login, balance, total_earnings, monthly_commission_total, last_commission_reset, last_activation_at, whatsapp
 
 TABLE: site_configs
 COLUMNS: id, organization_id, shop_name, commission_type, network_depth, level_commissions, updated_at, leadership_bonus_config
