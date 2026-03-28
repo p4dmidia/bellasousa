@@ -99,6 +99,8 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
             }
         });
 
+        console.log("Affiliate Signup Response:", { success: !!data.user, error });
+
         if (error) {
             toast.error("Erro ao cadastrar: " + error.message);
         } else {
