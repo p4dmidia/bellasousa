@@ -35,34 +35,51 @@ export default function Checkout({
         const autoFetchAffiliate = async () => {
             const ref = getStoredReferral();
             if (ref) {
-                // Keep a lightweight auto-fetch just for the display name
-                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
+                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
                 
-                // Fetch ALL columns to ensure we have name and phone
+                // Primeiro tenta a busca rápida com o filtro de organização
                 let query = supabase.from('user_profiles').select('*');
                 
                 if (isUUID) {
-                    query = query.or(`id.eq.${ref},email.ilike.${ref},login.eq.${ref}`);
+                    query = query.or(`id.eq.${ref},email.ilike.${ref},login.ilike.${ref}`);
                 } else {
-                    // Try email, login or CPF
                     const sanitizedCpf = ref.replace(/\D/g, '');
-                    query = query.or(`email.ilike.${ref},login.eq.${ref},cpf.eq.${ref},cpf.eq.${sanitizedCpf}`);
+                    query = query.or(`email.ilike.${ref},login.ilike.${ref},cpf.eq.${ref},cpf.eq.${sanitizedCpf}`);
                 }
 
                 const { data, error } = await query
                     .eq('organization_id', ORGANIZATION_ID)
                     .maybeSingle();
                 
-                if (error) console.error("Checkout: Error finding affiliate:", error);
+                if (error) console.error("Checkout: Error finding affiliate (standard):", error);
                 
-                if (data) {
-                    setSelectedAffiliate(data);
+                let result = data;
+
+                if (!result) {
+                    // SEGUNDA TENTATIVA: Sem o filtro de organização
+                    console.log("Checkout: Affiliate not found with org filter, trying global search for:", ref);
+                    let globalQuery = supabase.from('user_profiles').select('*');
+                    if (isUUID) {
+                        globalQuery = globalQuery.or(`id.eq.${ref},email.ilike.${ref},login.ilike.${ref}`);
+                    } else {
+                        const sanitizedCpf = ref.replace(/\D/g, '');
+                        globalQuery = globalQuery.or(`email.ilike.${ref},login.ilike.${ref},cpf.eq.${ref},cpf.eq.${sanitizedCpf}`);
+                    }
+                    
+                    const { data: globalData } = await globalQuery.maybeSingle();
+                    result = globalData;
+                }
+
+                if (result) {
+                    setSelectedAffiliate(result);
                     setPersonal({
-                        name: data.nome || data.login || data.email?.split('@')[0] || 'Consultora',
-                        email: data.email || '-',
-                        whatsapp: data.phone || data.whatsapp || '-'
+                        name: result.nome || result.login || result.email?.split('@')[0] || 'Consultora',
+                        email: result.email || '-',
+                        whatsapp: result.phone || result.whatsapp || '-'
                     });
-                    console.log("Checkout: Affiliate auto-identified:", data.login);
+                    console.log("Checkout: Affiliate identified:", result.login);
+                } else {
+                    console.error("Checkout: Affiliate NOT FOUND even in global search:", ref);
                 }
             }
             setIsAffiliateLoading(false);

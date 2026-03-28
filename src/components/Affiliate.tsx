@@ -26,13 +26,15 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
             const ref = getStoredReferral();
             if (ref) {
                 const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
+                
+                // Primeiro tenta a busca rápida com o filtro de organização
                 let query = supabase.from('user_profiles').select('id, email, login');
                 
                 if (isUUID) {
-                    query = query.or(`id.eq.${ref},email.ilike.${ref},login.eq.${ref}`);
+                    query = query.or(`id.eq.${ref},email.ilike.${ref},login.ilike.${ref}`);
                 } else {
                     const sanitizedCpf = ref.replace(/\D/g, '');
-                    query = query.or(`email.ilike.${ref},login.eq.${ref},cpf.eq.${ref},cpf.eq.${sanitizedCpf}`);
+                    query = query.or(`email.ilike.${ref},login.ilike.${ref},cpf.eq.${ref},cpf.eq.${sanitizedCpf}`);
                 }
 
                 const { data, error } = await query
@@ -41,6 +43,25 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
                 
                 if (!error && data) {
                     setSelectedAffiliate(data);
+                    console.log("Affiliate identified (standard):", data.login);
+                } else {
+                    // SEGUNDA TENTATIVA: Sem o filtro de organização (para casos de base de dados inconsistente)
+                    console.log("Affiliate not found with org filter, trying global search for:", ref);
+                    let globalQuery = supabase.from('user_profiles').select('id, email, login');
+                    if (isUUID) {
+                        globalQuery = globalQuery.or(`id.eq.${ref},email.ilike.${ref},login.ilike.${ref}`);
+                    } else {
+                        const sanitizedCpf = ref.replace(/\D/g, '');
+                        globalQuery = globalQuery.or(`email.ilike.${ref},login.ilike.${ref},cpf.eq.${ref},cpf.eq.${sanitizedCpf}`);
+                    }
+                    
+                    const { data: globalData } = await globalQuery.maybeSingle();
+                    if (globalData) {
+                        setSelectedAffiliate(globalData);
+                        console.log("Affiliate identified (global fallback):", globalData.login);
+                    } else {
+                        console.error("Affiliate NOT FOUND even in global search:", ref);
+                    }
                 }
             }
             setIsAffiliateLoading(false);
