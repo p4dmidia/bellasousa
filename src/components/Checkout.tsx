@@ -6,7 +6,7 @@ import { supabase, ORGANIZATION_ID, supabaseUrl, supabaseAnonKey } from '../lib/
 import { getStoredReferral } from '../lib/referral';
 
 interface CartItem {
-    id: number;
+    id: string;
     name: string;
     price: number;
     image: string;
@@ -132,12 +132,14 @@ ${itemsList}
                     window.open(waUrl, '_blank');
                 }, 1500);
             } else {
-                toast.error("Falha ao registrar pedido: " + (data.error || data.message));
+                const errorMessage = data.error || data.message || "Erro desconhecido";
+                console.error("Falha no Checkout:", data);
+                toast.error(`Falha ao registrar pedido: ${errorMessage}`, { duration: 6000 });
             }
-        } catch (error) {
+        } catch (error: any) {
             setIsProcessing(false);
             console.error(error);
-            toast.error("Erro ao comunicar com o servidor.");
+            toast.error("Erro ao comunicar com o servidor: " + (error.message || "Verifique sua conexão."));
         }
     };
 

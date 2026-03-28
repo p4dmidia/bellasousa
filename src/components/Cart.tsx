@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingBag, Trash2, Plus, Minus, ArrowRight, ArrowLeft } from 'lucide-react';
 
 interface CartItem {
-    id: number;
+    id: string;
     name: string;
     price: number;
     image: string;
@@ -19,8 +19,8 @@ export default function Cart({
     onProceedToCheckout
 }: {
     items: CartItem[],
-    onUpdateQuantity: (id: number, delta: number) => void,
-    onRemove: (id: number) => void,
+    onUpdateQuantity: (id: string, delta: number) => void,
+    onRemove: (id: string) => void,
     onBackToStore: () => void,
     onProceedToCheckout: () => void
 }) {

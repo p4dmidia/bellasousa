@@ -52,7 +52,8 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
         e.preventDefault();
         setLoading(true);
 
-        const referrerId = selectedAffiliate?.id;
+        // Identificar o indicador (Pode ser o ID fixo ou o código bruto do link para o banco resolver)
+        const referrerId = selectedAffiliate?.id || getStoredReferral();
 
         console.log("Affiliate Signup: Referrer identified:", referrerId);
 

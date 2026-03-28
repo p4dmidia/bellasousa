@@ -57,16 +57,18 @@ serve(async (req) => {
     // NOVA REGRA: O comprador (resolved_affiliate_id) não recebe comissão.
     // Buscamos o indicador dele para calcular a comissão de nível 1 do pedido.
     let commission_amount = 0;
-    if (resolved_affiliate_id && items && items.length > 0) {
+    let recipient_id = null;
+
+    if (resolved_affiliate_id) {
       const { data: buyerProfile } = await supabase
         .from('user_profiles')
         .select('referrer_id, sponsor_id')
         .eq('id', resolved_affiliate_id)
         .maybeSingle();
 
-      const recipient_id = buyerProfile?.referrer_id || buyerProfile?.sponsor_id;
+      recipient_id = buyerProfile?.referrer_id || buyerProfile?.sponsor_id;
 
-      if (recipient_id) {
+      if (items && items.length > 0 && recipient_id) {
         if (configData && configData.level_commissions && configData.level_commissions.length > 0) {
           const rateOrValue = parseFloat(configData.level_commissions[0]);
           const isFixed = configData.commission_type === 'fixed';
@@ -98,12 +100,13 @@ serve(async (req) => {
       payment_id: order_ref,
       payment_method: payment_method_id || 'whatsapp',
       affiliate_id: resolved_affiliate_id,
+      referrer_id: recipient_id, // Identificar quem ganha a comissão no nível 1
       commission_amount: commission_amount
     }).select().single();
 
     if (dbError) {
-      console.error('Error saving order:', dbError);
-      throw new Error(`Falha no banco de dados: ${dbError.message}`);
+      console.error('Database Error saving order:', dbError);
+      throw new Error(`Erro ao salvar pedido: ${dbError.message} (${dbError.code || 'sem código'})`);
     }
 
     return new Response(
