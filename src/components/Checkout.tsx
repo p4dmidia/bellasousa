@@ -36,7 +36,7 @@ export default function Checkout({
             const ref = getStoredReferral();
             if (ref) {
                 const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
-                const selectCols = 'id, email, login, full_name, nome, phone, whatsapp, tel, organization_id';
+                const selectCols = 'id, email, login, full_name, whatsapp, organization_id';
                 
                 let result = null;
 
@@ -88,9 +88,9 @@ export default function Checkout({
                 if (result) {
                     setSelectedAffiliate(result);
                     setPersonal({
-                        name: result.nome || result.full_name || result.login || result.email?.split('@')[0] || 'Consultora',
+                        name: result.full_name || result.login || result.email?.split('@')[0] || 'Consultora',
                         email: result.email || '-',
-                        whatsapp: result.phone || result.whatsapp || '-'
+                        whatsapp: result.whatsapp || '-'
                     });
                     console.log("Checkout: Affiliate identified:", result.login || result.id);
                 } else {
