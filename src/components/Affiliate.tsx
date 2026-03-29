@@ -81,6 +81,10 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
         const [nome, ...sobrenomeParts] = formData.fullName.split(' ');
         const sobrenome = sobrenomeParts.join(' ');
 
+        // Gerar um login base (parte do email) e adicionar um sufixo aleatório para evitar colisões
+        const emailPrefix = formData.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+        const uniqueLogin = `${emailPrefix}_${Math.random().toString(36).substring(2, 6)}`;
+
         const { data, error } = await supabase.auth.signUp({
             email: formData.email,
             password: formData.password,
@@ -92,12 +96,13 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
                     whatsapp: formData.whatsapp,
                     city: formData.city,
                     pix_key: formData.pixKey,
-                    login: formData.email.split('@')[0], // Default login as part of email
+                    login: uniqueLogin,
                     organization_id: ORGANIZATION_ID,
                     referrer_id: referrerId
                 }
             }
         });
+
 
         console.log("Affiliate Signup Response:", { success: !!data.user, error });
 

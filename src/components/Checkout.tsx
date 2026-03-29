@@ -35,36 +35,51 @@ export default function Checkout({
         const autoFetchAffiliate = async () => {
             const ref = getStoredReferral();
             if (ref) {
-                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
+                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
+                const selectCols = 'id, email, login, full_name, nome, phone, whatsapp, tel, organization_id';
                 
-                // Primeiro tenta a busca rápida com o filtro de organização
-                let query = supabase.from('user_profiles').select('*');
-                
+                let result = null;
+
+                // 1. Tentar busca direta por ID se for UUID (Método mais rápido e seguro)
                 if (isUUID) {
-                    query = query.or(`id.eq.${ref},email.ilike.${ref},login.ilike.${ref}`);
-                } else {
-                    const sanitizedCpf = ref.replace(/\D/g, '');
-                    query = query.or(`email.ilike.${ref},login.ilike.${ref},cpf.eq.${ref},cpf.eq.${sanitizedCpf}`);
+                    const { data: byId, error: idErr } = await supabase
+                        .from('user_profiles')
+                        .select(selectCols)
+                        .eq('id', ref)
+                        .maybeSingle();
+                    
+                    if (byId) {
+                        result = byId;
+                    } else if (idErr) {
+                        console.error("Checkout: Error in direct ID lookup:", idErr);
+                    }
                 }
 
-                const { data, error } = await query
-                    .eq('organization_id', ORGANIZATION_ID)
-                    .maybeSingle();
-                
-                if (error) console.error("Checkout: Error finding affiliate (standard):", error);
-                
-                let result = data;
-
+                // 2. Fallback para busca por Campos (Login, E-mail, CPF) se necessário ou se ID falhou
                 if (!result) {
-                    // SEGUNDA TENTATIVA: Sem o filtro de organização
-                    console.log("Checkout: Affiliate not found with org filter, trying global search for:", ref);
-                    let globalQuery = supabase.from('user_profiles').select('*');
-                    if (isUUID) {
-                        globalQuery = globalQuery.or(`id.eq.${ref},email.ilike.${ref},login.ilike.${ref}`);
-                    } else {
-                        const sanitizedCpf = ref.replace(/\D/g, '');
-                        globalQuery = globalQuery.or(`email.ilike.${ref},login.ilike.${ref},cpf.eq.${ref},cpf.eq.${sanitizedCpf}`);
+                    let query = supabase.from('user_profiles').select(selectCols);
+                    const sanitizedCpf = ref.replace(/\D/g, '');
+                    
+                    query = query.or(`email.ilike.${ref},login.ilike.${ref},cpf.eq.${ref},cpf.eq.${sanitizedCpf}`);
+
+                    const { data: byFilters, error: filterErr } = await query
+                        .eq('organization_id', ORGANIZATION_ID)
+                        .maybeSingle();
+
+                    if (byFilters) {
+                        result = byFilters;
+                    } else if (filterErr) {
+                        console.error("Checkout: Error in standard filter lookup:", filterErr);
                     }
+                }
+
+                // 3. Busca Global Final (Sem filtro de Org se as tentativas anteriores falharam)
+                if (!result) {
+                    console.log("Checkout: Affiliate not found, trying global search for:", ref);
+                    let globalQuery = supabase.from('user_profiles').select(selectCols);
+                    const sanitizedCpf = ref.replace(/\D/g, '');
+                    
+                    globalQuery = globalQuery.or(`id.eq.${ref},email.ilike.${ref},login.ilike.${ref},cpf.eq.${ref},cpf.eq.${sanitizedCpf}`);
                     
                     const { data: globalData } = await globalQuery.maybeSingle();
                     result = globalData;
@@ -73,11 +88,11 @@ export default function Checkout({
                 if (result) {
                     setSelectedAffiliate(result);
                     setPersonal({
-                        name: result.nome || result.login || result.email?.split('@')[0] || 'Consultora',
+                        name: result.nome || result.full_name || result.login || result.email?.split('@')[0] || 'Consultora',
                         email: result.email || '-',
                         whatsapp: result.phone || result.whatsapp || '-'
                     });
-                    console.log("Checkout: Affiliate identified:", result.login);
+                    console.log("Checkout: Affiliate identified:", result.login || result.id);
                 } else {
                     console.error("Checkout: Affiliate NOT FOUND even in global search:", ref);
                 }
