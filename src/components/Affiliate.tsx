@@ -107,7 +107,11 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
         console.log("Affiliate Signup Response:", { success: !!data.user, error });
 
         if (error) {
-            toast.error("Erro ao cadastrar: " + error.message);
+            if (error.message.toLowerCase().includes('already registered') || error.status === 422) {
+                toast.error("Este e-mail já está cadastrado. Tente fazer login ou use outro e-mail.");
+            } else {
+                toast.error("Erro ao cadastrar: " + error.message);
+            }
         } else {
             if (data.session) {
                 // Auto-login successful (e.g. email confirmation disabled)
