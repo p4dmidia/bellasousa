@@ -5,7 +5,7 @@ export const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export const ORGANIZATION_ID = '512f9aeb-683a-49c0-9731-76a7c8d10e8d';
+export const ORGANIZATION_ID = '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
 
 // Helper function to ensure all queries include the mandatory organization filter
 export const tenantQuery = (table: string) => {

@@ -7,38 +7,51 @@ DECLARE
     v_ref_id UUID;
     v_login TEXT;
     v_meta JSONB;
+    v_meta_ref TEXT;
 BEGIN
     v_meta := NEW.raw_user_meta_data;
+    v_meta_ref := NULLIF(v_meta->>'referrer_id', '');
     
-    -- Safely parse Org ID (fallback to standard if missing/invalid)
-    BEGIN
-        v_org_id := (v_meta->>'organization_id')::UUID;
-    EXCEPTION WHEN OTHERS THEN
-        v_org_id := '512f9aeb-683a-49c0-9731-76a7c8d10e8d'::UUID;
-    END;
-    
-    IF v_org_id IS NULL THEN
-        v_org_id := '512f9aeb-683a-49c0-9731-76a7c8d10e8d'::UUID;
+    -- 1. TENTATIVA DE RESOLUÇÃO DO INDICADOR (REFERRER)
+    IF v_meta_ref IS NOT NULL THEN
+        -- Se for um UUID válido, tenta buscar por ID
+        IF v_meta_ref ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+            BEGIN
+              SELECT id, organization_id INTO v_ref_id, v_org_id FROM public.user_profiles WHERE id = v_meta_ref::UUID LIMIT 1;
+            EXCEPTION WHEN OTHERS THEN
+              v_ref_id := NULL;
+            END;
+        END IF;
+
+        -- Se não encontrou por ID ou não era UUID, tenta por Login ou E-mail
+        IF v_ref_id IS NULL THEN
+            SELECT id, organization_id INTO v_ref_id, v_org_id FROM public.user_profiles 
+            WHERE login = v_meta_ref OR email = v_meta_ref OR cpf = REPLACE(REPLACE(v_meta_ref, '.', ''), '-', '')
+            LIMIT 1;
+        END IF;
     END IF;
 
-    -- Safely parse and VERIFY Referrer ID (avoid FK violation)
-    BEGIN
-        v_ref_id := (v_meta->>'referrer_id')::UUID;
-        
-        -- Check if it exists in user_profiles
-        IF v_ref_id IS NOT NULL THEN
-            IF NOT EXISTS (SELECT 1 FROM public.user_profiles WHERE id = v_ref_id) THEN
-                v_ref_id := NULL; -- Invalidate if not found
-            END IF;
-        END IF;
-    EXCEPTION WHEN OTHERS THEN
-        v_ref_id := NULL;
-    END;
+    -- 2. RESOLUÇÃO DA ORGANIZAÇÃO (HERANÇA OU FALLBACK)
+    -- Prioridade 1: Herança do indicador (v_org_id preenchido na busca acima)
+    -- Prioridade 2: Valor enviado explicitamente na metadata
+    -- Prioridade 3: Fallback padrão da rede Bela Sousa (5111af72-27a5-41fd-8ed9-8c51b78b4fdd)
     
-    -- Prepare Login with fallback
+    IF v_org_id IS NULL THEN
+        BEGIN
+            v_org_id := (v_meta->>'organization_id')::UUID;
+        EXCEPTION WHEN OTHERS THEN
+            v_org_id := NULL;
+        END;
+    END IF;
+
+    IF v_org_id IS NULL THEN
+        v_org_id := '5111af72-27a5-41fd-8ed9-8c51b78b4fdd'::UUID;
+    END IF;
+
+    -- 3. PREPARAÇÃO DO LOGIN
     v_login := COALESCE(v_meta->>'login', split_part(NEW.email, '@', 1));
 
-    -- Insert into user_profiles
+    -- 4. INSERT NO PERFIL
     INSERT INTO public.user_profiles (
         id, email, login, whatsapp, full_name, city, pix_key, 
         organization_id, referrer_id, sponsor_id, role, status, is_active
@@ -64,6 +77,7 @@ BEGIN
         full_name = COALESCE(EXCLUDED.full_name, user_profiles.full_name),
         referrer_id = COALESCE(user_profiles.referrer_id, EXCLUDED.referrer_id),
         sponsor_id = COALESCE(user_profiles.sponsor_id, EXCLUDED.sponsor_id),
+        organization_id = COALESCE(user_profiles.organization_id, EXCLUDED.organization_id),
         updated_at = now();
         
     RETURN NEW;

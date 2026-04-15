@@ -58,7 +58,7 @@ export default function Checkout({
                 // 2. Fallback para busca por Campos (Login, E-mail, CPF) se necessário ou se ID falhou
                 if (!result) {
                     let query = supabase.from('user_profiles').select(selectCols);
-                    const sanitizedCpf = ref.replace(/\D/g, '');
+                    const sanitizedCpf = (ref && typeof ref === 'string') ? ref.replace(/\D/g, '') : '';
                     
                     query = query.or(`email.ilike.${ref},login.ilike.${ref},cpf.eq.${ref},cpf.eq.${sanitizedCpf}`);
 
@@ -77,7 +77,7 @@ export default function Checkout({
                 if (!result) {
                     console.log("Checkout: Affiliate not found, trying global search for:", ref);
                     let globalQuery = supabase.from('user_profiles').select(selectCols);
-                    const sanitizedCpf = ref.replace(/\D/g, '');
+                    const sanitizedCpf = (ref && typeof ref === 'string') ? ref.replace(/\D/g, '') : '';
                     
                     globalQuery = globalQuery.or(`id.eq.${ref},email.ilike.${ref},login.ilike.${ref},cpf.eq.${ref},cpf.eq.${sanitizedCpf}`);
                     
@@ -165,12 +165,13 @@ ${itemsList}
                 }, 1500);
             } else {
                 const errorMessage = data.error || data.message || "Erro desconhecido";
-                console.error("Falha no Checkout:", data);
-                toast.error(`Falha ao registrar pedido: ${errorMessage}`, { duration: 6000 });
+                const errorDetails = data.details || "";
+                console.error("Falha no Checkout completo:", data);
+                toast.error(`Falha ao registrar pedido: ${errorMessage} ${errorDetails}`, { duration: 10000 });
             }
         } catch (error: any) {
             setIsProcessing(false);
-            console.error(error);
+            console.error("Erro na comunicação:", error);
             toast.error("Erro ao comunicar com o servidor: " + (error.message || "Verifique sua conexão."));
         }
     };

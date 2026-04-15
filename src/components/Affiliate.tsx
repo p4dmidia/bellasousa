@@ -97,7 +97,7 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
                     city: formData.city,
                     pix_key: formData.pixKey,
                     login: uniqueLogin,
-                    organization_id: ORGANIZATION_ID,
+                    organization_id: selectedAffiliate?.organization_id || ORGANIZATION_ID,
                     referrer_id: referrerId
                 }
             }
