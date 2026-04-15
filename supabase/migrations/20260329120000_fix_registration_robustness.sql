@@ -45,7 +45,7 @@ BEGIN
     END IF;
 
     IF v_org_id IS NULL THEN
-        v_org_id := '5111af72-27a5-41fd-8ed9-8c51b78b4fdd'::UUID;
+        v_org_id := '512f9aeb-683a-49c0-9731-76a7c8d10e8d'::UUID;
     END IF;
 
     -- 3. PREPARAÇÃO DO LOGIN
