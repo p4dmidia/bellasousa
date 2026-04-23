@@ -37,21 +37,19 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
                 }
 
                 const { data, error } = await query
-                    .eq('organization_id', ORGANIZATION_ID)
                     .maybeSingle();
                 
                 if (!error && data) {
                     setSelectedAffiliate(data);
                     console.log("Affiliate identified (standard):", data.login);
                 } else {
-                    // SEGUNDA TENTATIVA: Sem o filtro de organização (para casos de base de dados inconsistente)
+                    // SEGUNDA TENTATIVA: Busca global (para casos de base de dados compartilhada)
                     console.log("Affiliate not found with org filter, trying global search for:", ref);
                     let globalQuery = supabase.from('user_profiles').select('id, email, login, organization_id');
                     if (isUUID) {
-                        globalQuery = globalQuery.or(`id.eq.${ref},email.ilike.${ref},login.ilike.${ref}`);
+                        globalQuery = globalQuery.eq('id', ref);
                     } else {
-                        const sanitizedCpf = ref.replace(/\D/g, '');
-                        globalQuery = globalQuery.or(`email.ilike.${ref},login.ilike.${ref},cpf.eq.${ref},cpf.eq.${sanitizedCpf}`);
+                        globalQuery = globalQuery.or(`email.ilike.${ref},login.ilike.${ref}`);
                     }
                     
                     const { data: globalData } = await globalQuery.maybeSingle();
@@ -73,7 +71,32 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
         setLoading(true);
 
         // Identificar o indicador (Pode ser o ID fixo ou o código bruto do link para o banco resolver)
-        const referrerId = selectedAffiliate?.id || getStoredReferral();
+        let referrerId = selectedAffiliate?.id || getStoredReferral();
+
+        // SEGURANÇA EXTRA: Se ainda for um e-mail/string, tenta resolver o UUID uma última vez antes de enviar
+        if (referrerId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(referrerId)) {
+            console.log("Attempting to resolve non-UUID referrer:", referrerId);
+            const { data: quickRef } = await supabase.from('user_profiles')
+                .select('id, organization_id')
+                .or(`email.ilike.${referrerId},login.ilike.${referrerId}`)
+                .eq('organization_id', ORGANIZATION_ID)
+                .maybeSingle();
+            
+            if (quickRef) {
+                referrerId = quickRef.id;
+                console.log("Referrer resolved at last second:", referrerId);
+            } else {
+                // Tenta busca global se não achou na org atual
+                const { data: globalRef } = await supabase.from('user_profiles')
+                    .select('id, organization_id')
+                    .or(`email.ilike.${referrerId},login.ilike.${referrerId}`)
+                    .maybeSingle();
+                if (globalRef) {
+                    referrerId = globalRef.id;
+                    console.log("Referrer resolved globally at last second:", referrerId);
+                }
+            }
+        }
 
         console.log("Affiliate Signup: Referrer identified:", referrerId);
 
@@ -95,9 +118,13 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
                     whatsapp: formData.whatsapp,
                     city: formData.city,
                     pix_key: formData.pixKey,
+                    organization_id: ORGANIZATION_ID,
+                    referrer_id: referrerId,
+                    sponsor_id: referrerId,
+                    full_name: formData.fullName,
                     login: uniqueLogin,
-                    organization_id: selectedAffiliate?.organization_id || ORGANIZATION_ID,
-                    referrer_id: referrerId
+                    whatsapp: formData.whatsapp,
+                    registration_type: 'business'
                 }
             }
         });
@@ -334,9 +361,9 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
                                     value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} />
                             </div>
 
-                            <button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/95 text-white py-5 rounded-2xl font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-primary/20 disabled:opacity-50">
-                                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Criar Minha Conta"}
-                                {!loading && <CheckCircle2 className="w-5 h-5" />}
+                            <button type="submit" disabled={loading || isAffiliateLoading} className="w-full bg-primary hover:bg-primary/95 text-white py-5 rounded-2xl font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-primary/20 disabled:opacity-50">
+                                {loading || isAffiliateLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Criar Minha Conta"}
+                                {!loading && !isAffiliateLoading && <CheckCircle2 className="w-5 h-5" />}
                             </button>
                         </form>
                     </div>

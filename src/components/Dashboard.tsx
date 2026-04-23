@@ -73,6 +73,8 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [treeData, setTreeData] = useState<AffiliateNode | null>(null);
+  const [chartFilter, setChartFilter] = useState<'7' | '15' | '30' | '6m' | '12m'>('30');
+  const [allUsersList, setAllUsersList] = useState<any[]>([]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -228,6 +230,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
         // 2. Identify current user's network
         const network = usersList.filter(u => u.referrer_id === user.id || u.sponsor_id === user.id);
         setMyNetwork(network);
+        setAllUsersList(usersList);
 
         // 3. Fetch Wallet Transactions for financial history
         const { data: txList, error: txError } = await supabase
@@ -418,11 +421,72 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
     date: new Date(tx.created_at).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   }));
 
-  const chartData = [
-    { month: 'Jan', value: 20 },
-    { month: 'Fev', value: 40 },
-    { month: 'Mar', value: 60 },
-  ];
+  const chartFilterUnit = (chartFilter === '6m' || chartFilter === '12m') ? 'month' : 'day';
+
+  const getChartData = () => {
+    const now = new Date();
+    let days = 30;
+    let unit = chartFilterUnit;
+
+    if (chartFilter === '7') days = 7;
+    else if (chartFilter === '15') days = 15;
+    else if (chartFilter === '6m') { days = 180; }
+    else if (chartFilter === '12m') { days = 365; }
+
+    const startDate = new Date();
+    startDate.setDate(now.getDate() - days);
+
+    // Filter users by date
+    const filteredUsers = allUsersList.filter(u => new Date(u.created_at) >= startDate);
+    const filteredOrders = myOrders.filter(o => new Date(o.created_at) >= startDate);
+
+    if (unit === 'day') {
+      const data = [];
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(now.getDate() - i);
+        const label = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        const dateStr = d.toISOString().split('T')[0];
+
+        const userCount = filteredUsers.filter(u => {
+          const ud = new Date(u.created_at);
+          return ud.toISOString().split('T')[0] === dateStr;
+        }).length;
+
+        const revenue = filteredOrders.filter(o => {
+          const od = new Date(o.created_at);
+          return od.toISOString().split('T')[0] === dateStr;
+        }).reduce((acc, o) => acc + (o.total_amount || 0), 0);
+
+        data.push({ label, value: userCount, revenue });
+      }
+      return data;
+    } else {
+      const data = [];
+      for (let i = (chartFilter === '6m' ? 5 : 11); i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = d.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase();
+        const yearMonth = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+        
+        const userCount = filteredUsers.filter(u => {
+          const ud = new Date(u.created_at);
+          return ud.toISOString().startsWith(yearMonth);
+        }).length;
+
+        const revenue = filteredOrders.filter(o => {
+          const od = new Date(o.created_at);
+          return od.toISOString().startsWith(yearMonth);
+        }).reduce((acc, o) => acc + (o.total_amount || 0), 0);
+
+        data.push({ label, value: userCount, revenue });
+      }
+      return data;
+    }
+  };
+
+  const chartData = getChartData();
+  const maxUserValue = Math.max(...chartData.map(d => d.value), 1);
+  const maxRevenueValue = Math.max(...chartData.map(d => d.revenue), 1);
 
 
 
@@ -435,7 +499,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
   }
 
   return (
-    <div className="flex h-screen bg-[#1c1616] text-white">
+    <div className="flex h-screen bg-[#1c1616] text-white overflow-hidden">
       {/* Mobile Top Bar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-20 bg-[#130d0d] border-b border-accent/10 flex items-center justify-between px-6 z-50">
         <h2 className="font-serif italic text-xl text-accent">Bela Sousa</h2>
@@ -533,7 +597,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto bg-[#130d0d] pt-20 lg:pt-0">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#130d0d] pt-20 lg:pt-0">
         <header className="p-4 lg:p-8 flex justify-between items-center border-b border-accent/10 sticky top-0 lg:top-0 bg-[#130d0d]/80 backdrop-blur-md z-10">
           <div>
             <h1 className="text-xl lg:text-3xl font-serif">Escritório Virtual</h1>
@@ -557,7 +621,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
           </div>
         </header>
 
-        <div className="p-8 max-w-7xl mx-auto space-y-10">
+        <div className="p-4 lg:p-8 max-w-7xl mx-auto space-y-6 lg:space-y-10">
           {activeTab === 'overview' && (
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -565,14 +629,14 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
               className="space-y-10"
             >
               {/* Affiliate Links Section */}
-              <div className="bg-gradient-to-r from-accent/20 to-transparent border border-accent/20 p-8 rounded-[40px] flex flex-col lg:flex-row justify-between items-center gap-8">
+              <div className="bg-gradient-to-r from-accent/20 to-transparent border border-accent/20 p-4 lg:p-8 rounded-[30px] lg:rounded-[40px] flex flex-col lg:flex-row justify-between items-center gap-6 lg:gap-8">
                 <div>
                   <h3 className="font-serif text-2xl italic mb-2">Seus Links de Indicação</h3>
                   <p className="text-slate-500 text-[10px] uppercase tracking-widest font-bold">Compartilhe e ganhe comissões sobre vendas e novas consultoras</p>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-6 w-full lg:w-auto">
+                <div className="flex flex-col sm:flex-row gap-4 lg:gap-6 w-full lg:w-auto">
                   {/* Home Link */}
-                  <div className="flex-1 lg:w-80 bg-[#1a1414] border border-accent/10 rounded-2xl p-4 flex justify-between items-center group hover:border-accent/40 transition-all shadow-lg overflow-hidden">
+                  <div className="flex-1 lg:w-64 bg-[#1a1414] border border-accent/10 rounded-2xl p-4 flex justify-between items-center group hover:border-accent/40 transition-all shadow-lg overflow-hidden">
                     <div className="flex-1 min-w-0 mr-4">
                       <p className="text-[10px] text-slate-500 uppercase font-black mb-1.5 flex items-center gap-1.5">
                         <Grid className="w-3 h-3 text-accent/50" />
@@ -599,7 +663,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                   </div>
 
                   {/* Cadastro Link */}
-                  <div className="flex-1 lg:w-80 bg-[#1a1414] border border-accent/10 rounded-2xl p-4 flex justify-between items-center group hover:border-accent/40 transition-all shadow-lg overflow-hidden">
+                  <div className="flex-1 lg:w-64 bg-[#1a1414] border border-accent/10 rounded-2xl p-4 flex justify-between items-center group hover:border-accent/40 transition-all shadow-lg overflow-hidden">
                     <div className="flex-1 min-w-0 mr-4">
                       <p className="text-[10px] text-slate-500 uppercase font-black mb-1.5 flex items-center gap-1.5">
                         <Users className="w-3 h-3 text-accent/50" />
@@ -705,83 +769,179 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                 })()}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Performance Chart Placeholder */}
-                <div className="lg:col-span-2 bg-white/5 border border-accent/10 p-8 rounded-[40px]">
-                  <div className="flex justify-between items-center mb-10">
-                    <h3 className="font-serif text-2xl group flex items-center gap-3">
-                      Crescimento da Rede
-                      <TrendingUp className="w-5 h-5 text-accent" />
-                    </h3>
-                    <select className="bg-transparent border border-accent/20 rounded-lg text-xs p-2 focus:outline-none">
-                      <option>Últimos 6 meses</option>
-                      <option>Últimos 12 meses</option>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                {/* Network Growth Chart */}
+                <div className="bg-[#1a1414] border border-accent/10 p-6 lg:p-8 rounded-[40px] shadow-2xl relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 blur-3xl -mr-16 -mt-16 rounded-full" />
+                  
+                  <div className="flex justify-between items-center mb-8 relative z-10">
+                    <div>
+                      <h3 className="font-serif text-2xl flex items-center gap-3">
+                        Crescimento da Rede
+                        <TrendingUp className="w-5 h-5 text-accent" />
+                      </h3>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Novos consultores no período</p>
+                    </div>
+                    <select 
+                      value={chartFilter}
+                      onChange={(e) => setChartFilter(e.target.value as any)}
+                      className="bg-[#130d0d] border border-accent/20 rounded-lg text-[10px] p-2 focus:outline-none text-accent uppercase font-bold cursor-pointer hover:border-accent/50 transition-all"
+                    >
+                      <option value="7">7 Dias</option>
+                      <option value="15">15 Dias</option>
+                      <option value="30">30 Dias</option>
+                      <option value="6m">6 Meses</option>
+                      <option value="12m">12 Meses</option>
                     </select>
                   </div>
-                  <div className="h-64 flex items-end gap-3 px-4">
+
+                  <div className="h-64 flex items-end gap-1.5 lg:gap-2 px-2 lg:px-4 relative">
+                    {/* Background Grid */}
+                    <div className="absolute inset-0 flex flex-col justify-between opacity-10 pointer-events-none">
+                      {[...Array(5)].map((_, i) => <div key={i} className="border-t border-slate-500 w-full h-px" />)}
+                    </div>
+
                     {chartData.map((data, i) => (
-                      <div key={i} className="flex-1 group relative">
+                      <div key={i} className="flex-1 group/bar relative h-full flex flex-col justify-end">
                         <motion.div 
                           initial={{ height: 0 }}
-                          animate={{ height: `${data.value}%` }}
-                          transition={{ delay: i * 0.1 }}
-                          className="bg-accent/40 group-hover:bg-accent rounded-t-lg transition-all relative overflow-hidden"
+                          animate={{ height: `${(data.value / maxUserValue) * 100}%` }}
+                          transition={{ delay: i * 0.03, type: "spring", stiffness: 100 }}
+                          className="bg-gradient-to-t from-accent/20 to-accent rounded-t-md transition-all relative overflow-hidden min-h-[4px] hover:shadow-[0_0_15px_rgba(233,139,139,0.4)]"
                         >
-                          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-t from-transparent via-white/5 to-white/10" />
-                          <div className="absolute top-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                            <span className="text-[10px] font-bold text-white bg-primary px-2 py-1 rounded-md">{data.value}%</span>
+                          <div className="absolute top-0 left-0 w-full h-full bg-white/10 opacity-0 group-hover/bar:opacity-100 transition-opacity" />
+                          
+                          {/* Tooltip */}
+                          <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover/bar:opacity-100 transition-all pointer-events-none z-30 scale-90 group-hover/bar:scale-100">
+                            <div className="bg-primary border border-accent/30 px-3 py-1.5 rounded-xl shadow-2xl flex items-center gap-2 whitespace-nowrap">
+                              <span className="text-[12px] font-bold text-accent">{data.value}</span>
+                              <span className="text-[8px] text-slate-400 uppercase font-black">Novos</span>
+                            </div>
+                            <div className="w-2 h-2 bg-primary border-r border-b border-accent/30 rotate-45 mx-auto -mt-1" />
                           </div>
                         </motion.div>
-                        <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-slate-500 font-bold uppercase tracking-tighter">{data.month}</span>
+                        <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[8px] text-slate-500 font-bold uppercase tracking-tighter text-center whitespace-nowrap">
+                          {(() => {
+                            if (chartFilterUnit === 'month') return data.label;
+                            const index = i;
+                            const total = chartData.length;
+                            if (total <= 7) return data.label;
+                            if (total <= 15 && index % 2 === 0) return data.label;
+                            if (total > 15 && index % 5 === 0) return data.label;
+                            return '';
+                          })()}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Recent Activities as Quick Statement */}
-                <div className="bg-white/5 border border-accent/10 p-8 rounded-[40px] flex flex-col h-full shadow-2xl">
-                  <div className="flex items-center justify-between mb-8">
-                    <h3 className="font-serif text-2xl">Extrato Rápido</h3>
+                {/* Revenue Chart */}
+                <div className="bg-[#1a1414] border border-accent/10 p-6 lg:p-8 rounded-[40px] shadow-2xl relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 blur-3xl -mr-16 -mt-16 rounded-full" />
+                  
+                  <div className="flex justify-between items-center mb-8 relative z-10">
+                    <div>
+                      <h3 className="font-serif text-2xl flex items-center gap-3">
+                        Volume de Vendas
+                        <Zap className="w-5 h-5 text-green-400" />
+                      </h3>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Faturamento bruto no período</p>
+                    </div>
+                  </div>
+
+                  <div className="h-64 flex items-end gap-1.5 lg:gap-2 px-2 lg:px-4 relative">
+                    {/* Background Grid */}
+                    <div className="absolute inset-0 flex flex-col justify-between opacity-10 pointer-events-none">
+                      {[...Array(5)].map((_, i) => <div key={i} className="border-t border-slate-500 w-full h-px" />)}
+                    </div>
+
+                    {chartData.map((data, i) => (
+                      <div key={i} className="flex-1 group/bar relative h-full flex flex-col justify-end">
+                        <motion.div 
+                          initial={{ height: 0 }}
+                          animate={{ height: `${(data.revenue / maxRevenueValue) * 100}%` }}
+                          transition={{ delay: i * 0.03, type: "spring", stiffness: 100 }}
+                          className="bg-gradient-to-t from-green-500/20 to-green-500 rounded-t-md transition-all relative overflow-hidden min-h-[4px] hover:shadow-[0_0_15px_rgba(34,197,94,0.4)]"
+                        >
+                          <div className="absolute top-0 left-0 w-full h-full bg-white/10 opacity-0 group-hover/bar:opacity-100 transition-opacity" />
+                          
+                          {/* Tooltip */}
+                          <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover/bar:opacity-100 transition-all pointer-events-none z-30 scale-90 group-hover/bar:scale-100">
+                            <div className="bg-primary border border-green-500/30 px-3 py-1.5 rounded-xl shadow-2xl flex flex-col items-center gap-0.5 whitespace-nowrap">
+                              <span className="text-[12px] font-bold text-green-400">R$ {data.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              <span className="text-[7px] text-slate-500 uppercase font-black">Faturamento</span>
+                            </div>
+                            <div className="w-2 h-2 bg-primary border-r border-b border-green-500/30 rotate-45 mx-auto -mt-1" />
+                          </div>
+                        </motion.div>
+                        <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[8px] text-slate-500 font-bold uppercase tracking-tighter text-center whitespace-nowrap">
+                          {(() => {
+                            if (chartFilterUnit === 'month') return data.label;
+                            const index = i;
+                            const total = chartData.length;
+                            if (total <= 7) return data.label;
+                            if (total <= 15 && index % 2 === 0) return data.label;
+                            if (total > 15 && index % 5 === 0) return data.label;
+                            return '';
+                          })()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Activities and Quick Statement moved below the new charts if needed, or kept inside the layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Extrato Rápido moved to 3 columns to balance the layout */}
+                <div className="lg:col-span-3 bg-[#1a1414] border border-accent/10 p-8 rounded-[40px] shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 blur-[100px] -mr-32 -mt-32 rounded-full pointer-events-none" />
+                  
+                  <div className="flex items-center justify-between mb-8 relative z-10">
+                    <h3 className="font-serif text-2xl">Últimas Movimentações</h3>
                     <TrendingUp className="w-5 h-5 text-accent opacity-50" />
                   </div>
                   
-                  <div className="flex-1 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 relative z-10">
                     {recentActivity.length > 0 ? recentActivity.map((activity, i) => (
                       <motion.div 
                         key={i} 
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        className="flex items-center justify-between group p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-all border border-transparent hover:border-accent/10"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="flex items-center justify-between group p-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-accent/20"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="size-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent">
-                            <ArrowUpRight className="w-4 h-4" />
+                          <div className="size-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent group-hover:scale-110 transition-transform">
+                            <ArrowUpRight className="w-5 h-5" />
                           </div>
-                          <div className="min-w-0">
-                            <p className="text-[11px] font-bold text-slate-200 truncate leading-tight mb-0.5">{activity.text}</p>
-                            <p className="text-[9px] text-slate-500 uppercase tracking-tighter">{activity.date}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[12px] font-bold text-slate-200 leading-snug line-clamp-1" title={activity.text}>{activity.text}</p>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-tighter mt-0.5">{activity.date}</p>
                           </div>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-xs font-black text-green-400 font-mono tracking-tighter">{activity.amount}</p>
+                          <p className="text-sm font-black text-green-400 font-mono">{activity.amount}</p>
                         </div>
                       </motion.div>
                     )) : (
-                      <div className="py-12 text-center">
-                        <History className="w-8 h-8 text-slate-700 mx-auto mb-3 opacity-20" />
-                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest italic">Sem ganhos recentes</p>
+                      <div className="col-span-full py-12 text-center">
+                        <History className="w-12 h-12 text-slate-700 mx-auto mb-3 opacity-20" />
+                        <p className="text-slate-500 text-xs uppercase font-bold tracking-widest italic">Sem ganhos recentes</p>
                       </div>
                     )}
                   </div>
                   
-                  <button 
-                    onClick={() => setShowHistoryModal(true)}
-                    className="w-full mt-8 py-4 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-[10px] uppercase font-black tracking-widest text-accent transition-all flex items-center justify-center gap-2 group-hover:scale-[1.02]"
-                  >
-                    Ver Todo o Extrato
-                    <ExternalLink className="w-3 h-3" />
-                  </button>
+                  <div className="mt-8 flex justify-center">
+                    <button 
+                      onClick={() => setShowHistoryModal(true)}
+                      className="px-12 py-4 bg-accent/10 hover:bg-accent text-accent hover:text-primary border border-accent/20 rounded-2xl text-[10px] uppercase font-black tracking-widest transition-all flex items-center gap-2 group shadow-xl"
+                    >
+                      Ver Extrato Completo
+                      <ExternalLink className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>

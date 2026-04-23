@@ -22,7 +22,8 @@ import {
   Edit3,
   UserX,
   UserCheck,
-  Menu
+  Menu,
+  Zap
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import toast, { Toaster } from 'react-hot-toast';
@@ -81,6 +82,7 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
     is_leadership_item: false
   });
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [chartFilter, setChartFilter] = useState<'7' | '15' | '30' | '6m' | '12m'>('7');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -356,9 +358,9 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
     }
   };
 
-  // Calculate stats from real data (Only COMPLETED orders for main revenue)
-  const completedOrders = orders.filter(o => o.status === 'completed');
-  const pendingOrders = orders.filter(o => o.status === 'pending');
+  // Calculate stats from real data (Only COMPLETED or PAGO orders for main revenue)
+  const completedOrders = orders.filter(o => o.status === 'completed' || o.status === 'Pago');
+  const pendingOrders = orders.filter(o => o.status === 'pending' || o.status === 'Pendente');
 
   const totalRevenue = completedOrders.reduce((acc, order) => acc + (order.total_amount || 0), 0);
   const totalCommissions = completedOrders.reduce((acc, order) => acc + (order.commission_amount || 0), 0);
@@ -565,6 +567,72 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
     }
   };
 
+  const chartFilterUnit = (chartFilter === '6m' || chartFilter === '12m') ? 'month' : 'day';
+
+  const getChartData = () => {
+    const now = new Date();
+    let days = 30;
+    let unit = chartFilterUnit;
+
+    if (chartFilter === '7') days = 7;
+    else if (chartFilter === '15') days = 15;
+    else if (chartFilter === '6m') days = 180;
+    else if (chartFilter === '12m') days = 365;
+
+    const startDate = new Date();
+    startDate.setDate(now.getDate() - days);
+
+    const filteredUsers = affiliates.filter(u => new Date(u.created_at) >= startDate);
+    const filteredOrders = orders.filter(o => (o.status === 'completed' || o.status === 'Pago') && new Date(o.created_at) >= startDate);
+
+    if (unit === 'day') {
+      const data = [];
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(now.getDate() - i);
+        const label = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        const dateStr = d.toISOString().split('T')[0];
+
+        const userCount = filteredUsers.filter(u => {
+          const ud = new Date(u.created_at);
+          return ud.toISOString().split('T')[0] === dateStr;
+        }).length;
+
+        const revenue = filteredOrders.filter(o => {
+          const od = new Date(o.created_at);
+          return od.toISOString().split('T')[0] === dateStr;
+        }).reduce((acc, o) => acc + (o.total_amount || 0), 0);
+
+        data.push({ label, value: userCount, revenue });
+      }
+      return data;
+    } else {
+      const data = [];
+      for (let i = (chartFilter === '6m' ? 5 : 11); i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = d.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase();
+        const yearMonth = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+        
+        const userCount = filteredUsers.filter(u => {
+          const ud = new Date(u.created_at);
+          return ud.toISOString().startsWith(yearMonth);
+        }).length;
+
+        const revenue = filteredOrders.filter(o => {
+          const od = new Date(o.created_at);
+          return od.toISOString().startsWith(yearMonth);
+        }).reduce((acc, o) => acc + (o.total_amount || 0), 0);
+
+        data.push({ label, value: userCount, revenue });
+      }
+      return data;
+    }
+  };
+
+  const chartData = getChartData();
+  const maxUserValue = Math.max(...chartData.map(d => d.value), 1);
+  const maxRevenueValue = Math.max(...chartData.map(d => d.revenue), 1);
+
   return (
     <div className="flex h-screen bg-[#130d0d] text-white overflow-hidden relative">
       <Toaster position="top-right" toastOptions={{ style: { background: '#333', color: '#fff' } }} />
@@ -717,6 +785,126 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                       </div>
                     </div>
                   ))}
+                </div>
+
+                {/* Charts Section */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                  {/* General Network Growth Chart */}
+                  <div className="bg-[#1a1414] border border-accent/10 p-6 lg:p-8 rounded-[40px] shadow-2xl relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 blur-3xl -mr-16 -mt-16 rounded-full" />
+                    
+                    <div className="flex justify-between items-center mb-8 relative z-10">
+                      <div>
+                        <h3 className="font-serif text-2xl flex items-center gap-3">
+                          Crescimento Geral da Rede
+                          <TrendingUp className="w-5 h-5 text-accent" />
+                        </h3>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Novas consultoras em toda a plataforma</p>
+                      </div>
+                      <select 
+                        value={chartFilter}
+                        onChange={(e) => setChartFilter(e.target.value as any)}
+                        className="bg-[#130d0d] border border-accent/20 rounded-lg text-[10px] p-2 focus:outline-none text-accent uppercase font-bold cursor-pointer hover:border-accent/50 transition-all"
+                      >
+                        <option value="7">7 Dias</option>
+                        <option value="15">15 Dias</option>
+                        <option value="30">30 Dias</option>
+                        <option value="6m">6 Meses</option>
+                        <option value="12m">12 Meses</option>
+                      </select>
+                    </div>
+
+                    <div className="h-64 flex items-end gap-1.5 lg:gap-2 px-2 lg:px-4 relative">
+                      <div className="absolute inset-0 flex flex-col justify-between opacity-10 pointer-events-none">
+                        {[...Array(5)].map((_, i) => <div key={i} className="border-t border-slate-500 w-full h-px" />)}
+                      </div>
+
+                      {chartData.map((data, i) => (
+                        <div key={i} className="flex-1 group/bar relative h-full flex flex-col justify-end">
+                          <motion.div 
+                            initial={{ height: 0 }}
+                            animate={{ height: `${(data.value / maxUserValue) * 100}%` }}
+                            transition={{ delay: i * 0.03, type: "spring", stiffness: 100 }}
+                            className="bg-gradient-to-t from-accent/20 to-accent rounded-t-md transition-all relative overflow-hidden min-h-[4px] hover:shadow-[0_0_15px_rgba(233,139,139,0.4)]"
+                          >
+                            <div className="absolute top-0 left-0 w-full h-full bg-white/10 opacity-0 group-hover/bar:opacity-100 transition-opacity" />
+                            <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover/bar:opacity-100 transition-all pointer-events-none z-30 scale-90 group-hover/bar:scale-100">
+                              <div className="bg-primary border border-accent/30 px-3 py-1.5 rounded-xl shadow-2xl flex items-center gap-2 whitespace-nowrap">
+                                <span className="text-[12px] font-bold text-accent">{data.value}</span>
+                                <span className="text-[8px] text-slate-400 uppercase font-black">Novos</span>
+                              </div>
+                              <div className="w-2 h-2 bg-primary border-r border-b border-accent/30 rotate-45 mx-auto -mt-1" />
+                            </div>
+                          </motion.div>
+                          <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[8px] text-slate-500 font-bold uppercase tracking-tighter text-center whitespace-nowrap">
+                            {(() => {
+                              const chartFilterUnit = (chartFilter === '6m' || chartFilter === '12m') ? 'month' : 'day';
+                              if (chartFilterUnit === 'month') return data.label;
+                              const index = i;
+                              const total = chartData.length;
+                              if (total <= 7) return data.label;
+                              if (total <= 15 && index % 2 === 0) return data.label;
+                              if (total > 15 && index % 5 === 0) return data.label;
+                              return '';
+                            })()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* General Revenue Chart */}
+                  <div className="bg-[#1a1414] border border-accent/10 p-6 lg:p-8 rounded-[40px] shadow-2xl relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 blur-3xl -mr-16 -mt-16 rounded-full" />
+                    
+                    <div className="flex justify-between items-center mb-8 relative z-10">
+                      <div>
+                        <h3 className="font-serif text-2xl flex items-center gap-3">
+                          Faturamento Geral
+                          <Zap className="w-5 h-5 text-green-400" />
+                        </h3>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Receita bruta total da loja</p>
+                      </div>
+                    </div>
+
+                    <div className="h-64 flex items-end gap-1.5 lg:gap-2 px-2 lg:px-4 relative">
+                      <div className="absolute inset-0 flex flex-col justify-between opacity-10 pointer-events-none">
+                        {[...Array(5)].map((_, i) => <div key={i} className="border-t border-slate-500 w-full h-px" />)}
+                      </div>
+
+                      {chartData.map((data, i) => (
+                        <div key={i} className="flex-1 group/bar relative h-full flex flex-col justify-end">
+                          <motion.div 
+                            initial={{ height: 0 }}
+                            animate={{ height: `${(data.revenue / maxRevenueValue) * 100}%` }}
+                            transition={{ delay: i * 0.03, type: "spring", stiffness: 100 }}
+                            className="bg-gradient-to-t from-green-500/20 to-green-500 rounded-t-md transition-all relative overflow-hidden min-h-[4px] hover:shadow-[0_0_15px_rgba(34,197,94,0.4)]"
+                          >
+                            <div className="absolute top-0 left-0 w-full h-full bg-white/10 opacity-0 group-hover/bar:opacity-100 transition-opacity" />
+                            <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover/bar:opacity-100 transition-all pointer-events-none z-30 scale-90 group-hover/bar:scale-100">
+                              <div className="bg-primary border border-green-500/30 px-3 py-1.5 rounded-xl shadow-2xl flex flex-col items-center gap-0.5 whitespace-nowrap">
+                                <span className="text-[12px] font-bold text-green-400">R$ {data.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                <span className="text-[7px] text-slate-500 uppercase font-black">Faturamento</span>
+                              </div>
+                              <div className="w-2 h-2 bg-primary border-r border-b border-green-500/30 rotate-45 mx-auto -mt-1" />
+                            </div>
+                          </motion.div>
+                          <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[8px] text-slate-500 font-bold uppercase tracking-tighter text-center whitespace-nowrap">
+                            {(() => {
+                              const chartFilterUnit = (chartFilter === '6m' || chartFilter === '12m') ? 'month' : 'day';
+                              if (chartFilterUnit === 'month') return data.label;
+                              const index = i;
+                              const total = chartData.length;
+                              if (total <= 7) return data.label;
+                              if (total <= 15 && index % 2 === 0) return data.label;
+                              if (total > 15 && index % 5 === 0) return data.label;
+                              return '';
+                            })()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Resumo Rápido */}
