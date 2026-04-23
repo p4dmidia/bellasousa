@@ -1,5 +1,4 @@
--- Robust Registration Fix
--- 1. Redefine handle_new_user with better error handling and FK checks
+-- 1. Redefinir a função de criação de usuário com busca Case-Insensitive
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -12,7 +11,7 @@ BEGIN
     v_meta := NEW.raw_user_meta_data;
     v_meta_ref := NULLIF(v_meta->>'referrer_id', '');
     
-    -- 1. TENTATIVA DE RESOLUÇÃO DO INDICADOR (REFERRER)
+    -- TENTATIVA DE RESOLUÇÃO DO INDICADOR (REFERRER)
     IF v_meta_ref IS NOT NULL THEN
         -- Se for um UUID válido, tenta buscar por ID
         IF v_meta_ref ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
@@ -23,19 +22,17 @@ BEGIN
             END;
         END IF;
 
-        -- Se não encontrou por ID ou não era UUID, tenta por Login ou E-mail (Case-Insensitive)
+        -- Se não encontrou por ID ou não era UUID, tenta por Login ou E-mail (CASE-INSENSITIVE)
         IF v_ref_id IS NULL THEN
             SELECT id, organization_id INTO v_ref_id, v_org_id FROM public.user_profiles 
-            WHERE login ILIKE v_meta_ref OR email ILIKE v_meta_ref OR cpf = REPLACE(REPLACE(v_meta_ref, '.', ''), '-', '')
+            WHERE login ILIKE v_meta_ref 
+               OR email ILIKE v_meta_ref 
+               OR cpf = REPLACE(REPLACE(v_meta_ref, '.', ''), '-', '')
             LIMIT 1;
         END IF;
     END IF;
 
-    -- 2. RESOLUÇÃO DA ORGANIZAÇÃO (HERANÇA OU FALLBACK)
-    -- Prioridade 1: Herança do indicador (v_org_id preenchido na busca acima)
-    -- Prioridade 2: Valor enviado explicitamente na metadata
-    -- Prioridade 3: Fallback padrão da rede Bela Sousa (5111af72-27a5-41fd-8ed9-8c51b78b4fdd)
-    
+    -- RESOLUÇÃO DA ORGANIZAÇÃO
     IF v_org_id IS NULL THEN
         BEGIN
             v_org_id := (v_meta->>'organization_id')::UUID;
@@ -45,13 +42,13 @@ BEGIN
     END IF;
 
     IF v_org_id IS NULL THEN
-        v_org_id := '512f9aeb-683a-49c0-9731-76a7c8d10e8d'::UUID;
+        v_org_id := '512f9aeb-683a-49c0-9731-76a7c8d10e8d'::UUID; -- Fallback Bela Sousa
     END IF;
 
-    -- 3. PREPARAÇÃO DO LOGIN
+    -- PREPARAÇÃO DO LOGIN
     v_login := COALESCE(v_meta->>'login', split_part(NEW.email, '@', 1));
 
-    -- 4. INSERT NO PERFIL
+    -- INSERT OU UPDATE NO PERFIL
     INSERT INTO public.user_profiles (
         id, email, login, whatsapp, full_name, city, pix_key, 
         organization_id, referrer_id, sponsor_id, role, status, is_active
@@ -66,7 +63,7 @@ BEGIN
         COALESCE(v_meta->>'pix_key', v_meta->>'pix'),
         v_org_id,
         v_ref_id,
-        v_ref_id, -- Set sponsor_id = referrer_id initially
+        v_ref_id, -- Sponsor inicial é o próprio indicador
         'affiliate',
         'active',
         true
@@ -84,8 +81,33 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 2. Re-attach trigger if somehow dropped
+-- 2. Garantir o Gatilho
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 3. CLEANUP: Corrigir usuários órfãos que não foram vinculados corretamente
+-- Parte A: Recuperar via UUID no meta (Apenas se o UUID existir na tabela auth.users)
+UPDATE public.user_profiles up
+SET referrer_id = (au.raw_user_meta_data->>'referrer_id')::UUID,
+    sponsor_id = COALESCE(up.sponsor_id, (au.raw_user_meta_data->>'referrer_id')::UUID)
+FROM auth.users au
+WHERE up.id = au.id
+AND (up.referrer_id IS NULL OR up.sponsor_id IS NULL)
+AND au.raw_user_meta_data->>'referrer_id' ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+AND EXISTS (SELECT 1 FROM auth.users au2 WHERE au2.id = (au.raw_user_meta_data->>'referrer_id')::UUID);
+
+-- Parte B: Recuperar via Login ou E-mail (Case-Insensitive)
+UPDATE public.user_profiles up
+SET referrer_id = ref.id,
+    sponsor_id = COALESCE(up.sponsor_id, ref.id)
+FROM auth.users au
+JOIN public.user_profiles ref ON (
+    ref.login ILIKE au.raw_user_meta_data->>'referrer_id' OR 
+    ref.email ILIKE au.raw_user_meta_data->>'referrer_id'
+)
+WHERE up.id = au.id
+AND (up.referrer_id IS NULL OR up.sponsor_id IS NULL)
+AND au.raw_user_meta_data->>'referrer_id' IS NOT NULL
+AND au.raw_user_meta_data->>'referrer_id' !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';

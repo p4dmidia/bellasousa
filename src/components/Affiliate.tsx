@@ -27,14 +27,13 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
             if (ref) {
                 const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
                 
-                // Primeiro tenta a busca rápida com o filtro de organização
-                let query = supabase.from('user_profiles').select('id, email, login');
-                
+                let query = supabase.from('user_profiles').select('id, email, login, organization_id');
+
                 if (isUUID) {
-                    query = query.or(`id.eq.${ref},email.ilike.${ref},login.ilike.${ref}`);
+                    query = query.eq('id', ref);
                 } else {
-                    const sanitizedCpf = ref.replace(/\D/g, '');
-                    query = query.or(`email.ilike.${ref},login.ilike.${ref},cpf.eq.${ref},cpf.eq.${sanitizedCpf}`);
+                    // Se não for UUID, busca apenas por email ou login para evitar erro de sintaxe no Postgres (UUID column)
+                    query = query.or(`email.ilike.${ref},login.ilike.${ref}`);
                 }
 
                 const { data, error } = await query
@@ -47,7 +46,7 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
                 } else {
                     // SEGUNDA TENTATIVA: Sem o filtro de organização (para casos de base de dados inconsistente)
                     console.log("Affiliate not found with org filter, trying global search for:", ref);
-                    let globalQuery = supabase.from('user_profiles').select('id, email, login');
+                    let globalQuery = supabase.from('user_profiles').select('id, email, login, organization_id');
                     if (isUUID) {
                         globalQuery = globalQuery.or(`id.eq.${ref},email.ilike.${ref},login.ilike.${ref}`);
                     } else {

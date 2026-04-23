@@ -31,7 +31,10 @@ import {
   Menu,
   X,
   Zap,
-  ShoppingCart
+  ShoppingCart,
+  ZoomIn,
+  ZoomOut,
+  Maximize2
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { supabase, ORGANIZATION_ID } from '../lib/supabase';
@@ -45,6 +48,7 @@ interface DashboardProps {
 export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'network' | 'financial' | 'training' | 'profile'>('overview');
   const [networkView, setNetworkView] = useState<'tree' | 'list'>('tree');
+  const [zoom, setZoom] = useState(1);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: '', visible: false });
 
@@ -823,8 +827,52 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                 </div>
 
                 {networkView === 'tree' ? (
-                  <div className="bg-[#1a1414] rounded-3xl p-12 overflow-x-auto min-h-[500px] flex justify-center items-start">
-                    <div className="inline-block">
+                  <div 
+                    className="bg-[#1a1414] rounded-3xl p-4 md:p-12 overflow-hidden min-h-[600px] relative flex justify-center items-center border border-accent/5"
+                    onWheel={(e) => {
+                      if (e.ctrlKey) {
+                        setZoom(prev => Math.min(Math.max(prev - e.deltaY * 0.01, 0.2), 3));
+                      }
+                    }}
+                  >
+                    {/* Zoom Controls */}
+                    <div className="absolute bottom-8 right-8 flex flex-col gap-2 z-20">
+                      <button 
+                        onClick={() => setZoom(prev => Math.min(prev + 0.2, 3))}
+                        className="p-3 bg-white/5 backdrop-blur-md border border-accent/20 rounded-xl text-accent hover:bg-accent hover:text-primary transition-all shadow-xl"
+                        title="Aumentar Zoom"
+                      >
+                        <ZoomIn className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => setZoom(prev => Math.max(prev - 0.2, 0.2))}
+                        className="p-3 bg-white/5 backdrop-blur-md border border-accent/20 rounded-xl text-accent hover:bg-accent hover:text-primary transition-all shadow-xl"
+                        title="Diminuir Zoom"
+                      >
+                        <ZoomOut className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => setZoom(1)}
+                        className="p-3 bg-white/5 backdrop-blur-md border border-accent/20 rounded-xl text-accent hover:bg-accent hover:text-primary transition-all shadow-xl"
+                        title="Resetar Zoom"
+                      >
+                        <Maximize2 className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="absolute top-8 left-8 z-10 hidden md:block">
+                      <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
+                        Dica: Arraste para navegar e use os botões de zoom
+                      </p>
+                    </div>
+
+                    <motion.div 
+                      className="cursor-grab active:cursor-grabbing p-20"
+                      drag
+                      dragConstraints={{ left: -2000, right: 2000, top: -2000, bottom: 2000 }}
+                      style={{ scale: zoom }}
+                      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                    >
                       {treeData ? (
                         <TreeNode node={treeData} />
                       ) : (
@@ -833,7 +881,7 @@ export default function Dashboard({ onLogout, onNavigateHome }: DashboardProps) 
                            <p className="italic">Gerando visualização da rede...</p>
                         </div>
                       )}
-                    </div>
+                    </motion.div>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">

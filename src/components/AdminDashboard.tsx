@@ -64,6 +64,11 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
   const [affiliates, setAffiliates] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Link Referrer State
+  const [isLinkingReferrer, setIsLinkingReferrer] = useState(false);
+  const [referrerSearchQuery, setReferrerSearchQuery] = useState("");
+  const [foundReferrer, setFoundReferrer] = useState<any>(null);
 
   // New Product Form State
   const [newProduct, setNewProduct] = useState({
@@ -136,6 +141,29 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
 
     fetchData();
   }, []);
+
+  const generateTree = (uId: string, list: any[]): any => {
+    const userNode = list.find(u => u.id === uId);
+    if (!userNode) return null;
+
+    const children = list
+      .filter(u => (u.referrer_id === uId || u.sponsor_id === uId))
+      .map(child => generateTree(child.id, list))
+      .filter((node): node is any => node !== null);
+
+    return {
+      id: userNode.id,
+      name: userNode.full_name || userNode.nome || userNode.name || userNode.login || 'Consultora',
+      level: userNode.rank || userNode.role || 'Consultora',
+      pts: (userNode.total_sales || 0).toLocaleString('pt-BR'),
+      image: userNode.avatar_url,
+      isActive: userNode.status === 'active',
+      login: userNode.login || '-',
+      email: userNode.email || '-',
+      whatsapp: userNode.whatsapp || userNode.phone || '-',
+      children: children.length > 0 ? children : undefined
+    };
+  };
 
   const handleDeleteAffiliate = async (affiliateId: string) => {
     toast((t) => (
@@ -290,6 +318,42 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
     const newCommissions = [...levelCommissions];
     newCommissions[index] = value;
     setLevelCommissions(newCommissions);
+  };
+
+  const handleUpdateReferrer = async (affiliateId: string, referrerId: string) => {
+    if (!affiliateId || !referrerId) return;
+    
+    setIsLinkingReferrer(true);
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ 
+          referrer_id: referrerId,
+          sponsor_id: referrerId // Initially sponsor is the same as referrer
+        })
+        .eq('id', affiliateId);
+
+      if (error) throw error;
+
+      toast.success("Indicador vinculado com sucesso!");
+      
+      // Refresh local state
+      const { data: updatedData } = await supabase.from('user_profiles').select('*').eq('organization_id', ORGANIZATION_ID);
+      setAffiliates(updatedData || []);
+      
+      // Update selected affiliate if open
+      if (selectedAffiliate?.id === affiliateId) {
+        const updated = (updatedData || []).find(a => a.id === affiliateId);
+        setSelectedAffiliate(updated);
+      }
+      
+      setFoundReferrer(null);
+      setReferrerSearchQuery("");
+    } catch (err: any) {
+      toast.error("Erro ao vincular: " + err.message);
+    } finally {
+      setIsLinkingReferrer(false);
+    }
   };
 
   // Calculate stats from real data (Only COMPLETED orders for main revenue)
@@ -1532,6 +1596,44 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
                         <CheckCircle className="w-4 h-4" /> Informar Pagamento Realizado
                       </button>
                     </div>
+
+                    <div className="p-6 bg-white/5 border border-white/5 rounded-2xl space-y-4">
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                        <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500">Vínculo de Rede</h4>
+                        <span className="text-[10px] text-slate-400">Indicador atual: {affiliates.find(a => a.id === selectedAffiliate.referrer_id)?.login || affiliates.find(a => a.id === selectedAffiliate.referrer_id)?.email || 'Nenhum'}</span>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Search className="w-3 h-3 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                          <input 
+                            type="text" 
+                            placeholder="Buscar novo indicador (E-mail ou Login)..."
+                            value={referrerSearchQuery}
+                            onChange={(e) => {
+                              setReferrerSearchQuery(e.target.value);
+                              const found = affiliates.find(a => 
+                                (a.email?.toLowerCase().includes(e.target.value.toLowerCase()) || 
+                                 a.login?.toLowerCase().includes(e.target.value.toLowerCase())) &&
+                                 a.id !== selectedAffiliate.id
+                              );
+                              setFoundReferrer(e.target.value.length > 2 ? found : null);
+                            }}
+                            className="w-full bg-[#130d0d] border border-white/10 rounded-xl py-2 pl-8 pr-4 text-xs text-white focus:border-accent outline-none"
+                          />
+                        </div>
+                        {foundReferrer && (
+                          <button 
+                            onClick={() => handleUpdateReferrer(selectedAffiliate.id, foundReferrer.id)}
+                            disabled={isLinkingReferrer}
+                            className="bg-accent text-primary px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-accent/90 transition-all disabled:opacity-50"
+                          >
+                            {isLinkingReferrer ? <Loader2 className="w-3 h-3 animate-spin" /> : `Vincular a ${foundReferrer.login || foundReferrer.email?.split('@')[0]}`}
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-500 italic">Use esta ferramenta para corrigir casos onde a indicação automática falhou.</p>
+                    </div>
                   </motion.div>
                 )}
 
@@ -1588,7 +1690,10 @@ export default function AdminDashboard({ onLogout, onNavigateHome }: AdminDashbo
 
                 {activeModalTab === 'network' && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-center p-8 bg-[#130d0d] rounded-2xl border border-white/5 overflow-x-auto">
-                    <TreeNode node={initialNetworkData} />
+                    {(() => {
+                        const tree = generateTree(selectedAffiliate.id, affiliates);
+                        return tree ? <TreeNode node={tree} /> : <p className="text-slate-500 italic">Nenhum dado de rede disponível.</p>;
+                    })()}
                   </motion.div>
                 )}
               </div>
