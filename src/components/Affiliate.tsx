@@ -43,22 +43,7 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
                     setSelectedAffiliate(data);
                     console.log("Affiliate identified (standard):", data.login);
                 } else {
-                    // SEGUNDA TENTATIVA: Busca global (para casos de base de dados compartilhada)
-                    console.log("Affiliate not found with org filter, trying global search for:", ref);
-                    let globalQuery = supabase.from('user_profiles').select('id, email, login, organization_id');
-                    if (isUUID) {
-                        globalQuery = globalQuery.eq('id', ref);
-                    } else {
-                        globalQuery = globalQuery.or(`email.ilike.${ref},login.ilike.${ref}`);
-                    }
-                    
-                    const { data: globalData } = await globalQuery.maybeSingle();
-                    if (globalData) {
-                        setSelectedAffiliate(globalData);
-                        console.log("Affiliate identified (global fallback):", globalData.login);
-                    } else {
-                        console.error("Affiliate NOT FOUND even in global search:", ref);
-                    }
+                    console.error("Affiliate NOT FOUND in current organization:", ref);
                 }
             }
             setIsAffiliateLoading(false);
@@ -73,28 +58,18 @@ export function Affiliate({ onBack, onSuccess, onLoginSuccess }: { onBack: () =>
         // Identificar o indicador (Pode ser o ID fixo ou o código bruto do link para o banco resolver)
         let referrerId = selectedAffiliate?.id || getStoredReferral();
 
-        // SEGURANÇA EXTRA: Se ainda for um e-mail/string, tenta resolver o UUID uma última vez antes de enviar
+        console.log("Affiliate Signup: Initial referrer source:", referrerId);
+
+        // Se ainda for um e-mail/string, tenta resolver o UUID no novo banco
         if (referrerId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(referrerId)) {
-            console.log("Attempting to resolve non-UUID referrer:", referrerId);
             const { data: quickRef } = await supabase.from('user_profiles')
-                .select('id, organization_id')
-                .or(`email.ilike.${referrerId},login.ilike.${referrerId}`)
-                .eq('organization_id', ORGANIZATION_ID)
+                .select('id')
+                .or(`email.ilike.${referrerId},login.eq.${referrerId},cpf.eq.${referrerId}`)
                 .maybeSingle();
             
             if (quickRef) {
                 referrerId = quickRef.id;
-                console.log("Referrer resolved at last second:", referrerId);
-            } else {
-                // Tenta busca global se não achou na org atual
-                const { data: globalRef } = await supabase.from('user_profiles')
-                    .select('id, organization_id')
-                    .or(`email.ilike.${referrerId},login.ilike.${referrerId}`)
-                    .maybeSingle();
-                if (globalRef) {
-                    referrerId = globalRef.id;
-                    console.log("Referrer resolved globally at last second:", referrerId);
-                }
+                console.log("Referrer resolved to UUID:", referrerId);
             }
         }
 

@@ -3,7 +3,9 @@
  * and URL cleaning.
  */
 
-const STORAGE_KEY = 'affiliate_referrer_data';
+import { ORGANIZATION_ID } from './supabase';
+
+const STORAGE_KEY = `affiliate_referrer_data_${ORGANIZATION_ID}`;
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface ReferralData {

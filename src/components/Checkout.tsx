@@ -33,7 +33,15 @@ export default function Checkout({
     
     useEffect(() => {
         const autoFetchAffiliate = async () => {
-            const ref = getStoredReferral();
+            let ref = getStoredReferral();
+            
+            // 0. Tentar identificar pelo LOGIN (Prioridade se estiver logado)
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                console.log("Checkout: User logged in, using own profile as affiliate.");
+                ref = session.user.id; // Se estiver logado, o ID do usuário é a prioridade
+            }
+
             if (ref) {
                 const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
                 const selectCols = 'id, email, login, full_name, whatsapp, organization_id';
